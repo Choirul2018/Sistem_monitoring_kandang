@@ -53,7 +53,7 @@ dependencies:
   hand_signature: ^3.0.2
 
   # Background Sync
-  workmanager: ^0.5.2
+  workmanager: ^0.9.0+3
   connectivity_plus: ^6.1.4
 
   # Storage & Security
