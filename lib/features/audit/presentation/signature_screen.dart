@@ -25,7 +25,7 @@ class _SignatureScreenState extends ConsumerState<SignatureScreen> {
   }
 
   Future<void> _submitAudit() async {
-    if (!_signatureControl.hasActivePath) {
+    if (!_signatureControl.isFilled) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Tanda tangan wajib diisi.'),

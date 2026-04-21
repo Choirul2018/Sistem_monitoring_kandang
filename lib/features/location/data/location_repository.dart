@@ -25,7 +25,38 @@ class LocationRepository {
       return locations;
     } catch (_) {
       // Fallback to local
-      return HiveService.locations.values.toList();
+      final locals = HiveService.locations.values.toList();
+      if (locals.isEmpty) {
+        // Dummy Data Mode
+        final List<LocationModel> dummies = [
+          LocationModel(
+            id: 'loc-1',
+            name: 'Kandang Ayam Boiler A',
+            address: 'Blok Barat, Zona 1',
+            latitude: -6.200000,
+            longitude: 106.816666,
+            geofenceRadiusM: 50,
+            parts: ['Gerbang', 'Jalan Masuk', 'Gudang', 'Kandang 1', 'Kandang 2'],
+            createdAt: DateTime.now(),
+          ),
+          LocationModel(
+            id: 'loc-2',
+            name: 'Kandang Ayam Boiler B',
+            address: 'Blok Timur, Zona 2',
+            latitude: -6.200500,
+            longitude: 106.817000,
+            geofenceRadiusM: 50,
+            parts: ['Gerbang', 'Jalan Masuk', 'Gudang', 'Tempat Pakan', 'Tempat Minum'],
+            createdAt: DateTime.now(),
+          ),
+        ];
+        
+        for (final loc in dummies) {
+          await HiveService.locations.put(loc.id, loc);
+        }
+        return dummies;
+      }
+      return locals;
     }
   }
 
