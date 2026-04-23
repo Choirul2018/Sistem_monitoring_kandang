@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../audit/presentation/providers/audit_provider.dart';
 import '../../audit/data/audit_model.dart';
 import '../../audit/data/audit_part_model.dart';
+import '../../audit/data/livestock_sample_model.dart';
 import '../../../core/utils/pdf_exporter.dart';
 import '../../../app/theme/app_colors.dart';
 
@@ -25,6 +26,7 @@ class _ReportPreviewScreenState extends ConsumerState<ReportPreviewScreen> {
     try {
       final AuditModel? audit = await ref.read(auditDetailProvider(widget.auditId).future);
       final List<AuditPartModel> parts = await ref.read(auditPartsProvider(widget.auditId).future);
+      final List<LivestockSampleModel> samples = await ref.read(auditLivestockSamplesProvider(widget.auditId).future);
 
       if (audit == null) throw Exception('Audit tidak ditemukan');
 
@@ -38,6 +40,7 @@ class _ReportPreviewScreenState extends ConsumerState<ReportPreviewScreen> {
       final pdfFile = await PdfExporter.generateReport(
         audit: audit,
         parts: parts,
+        samples: samples,
         photos: allPhotos,
       );
 
@@ -192,7 +195,6 @@ class _ReportPreviewScreenState extends ConsumerState<ReportPreviewScreen> {
                     if (audit.signatureData != null) ...[
                       const SizedBox(height: 20),
                       Text('Tanda Tangan Auditor', style: Theme.of(context).textTheme.titleMedium),
-                      const SizedBox(height: 8),
                       Container(
                         width: double.infinity,
                         height: 120,
@@ -207,6 +209,18 @@ class _ReportPreviewScreenState extends ConsumerState<ReportPreviewScreen> {
                         ),
                       ),
                     ],
+
+                    const SizedBox(height: 20),
+
+                    // Livestock samples preview
+                    Text('Sampel Ternak', style: Theme.of(context).textTheme.titleMedium),
+                    ref.watch(auditLivestockSamplesProvider(widget.auditId)).when(
+                      data: (samples) => Column(
+                        children: samples.map((s) => _LivestockItem(sample: s)).toList(),
+                      ),
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => Text('Error: $e'),
+                    ),
                   ],
                 ),
               );
@@ -246,6 +260,44 @@ class _InfoRow extends StatelessWidget {
           Text(': ', style: Theme.of(context).textTheme.bodySmall),
           Expanded(
             child: Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LivestockItem extends StatelessWidget {
+  final LivestockSampleModel sample;
+  const _LivestockItem({required this.sample});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            sample.animalType == 'ayam' ? Icons.egg_rounded : Icons.waves_rounded,
+            size: 18,
+            color: AppColors.primary,
+          ),
+          const SizedBox(width: 8),
+          Text(sample.animalType.toUpperCase(),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const Spacer(),
+          Text(
+            sample.hasDisease ? 'BERPENYAKIT' : 'SEHAT',
+            style: TextStyle(
+              color: sample.hasDisease ? AppColors.error : AppColors.success,
+              fontWeight: FontWeight.bold,
+              fontSize: 11,
+            ),
           ),
         ],
       ),

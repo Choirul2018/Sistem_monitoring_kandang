@@ -1,8 +1,9 @@
 import 'dart:convert';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hand_signature/signature.dart';
 import 'providers/audit_provider.dart';
 import '../../../app/theme/app_colors.dart';
 
@@ -15,47 +16,88 @@ class SignatureScreen extends ConsumerStatefulWidget {
 }
 
 class _SignatureScreenState extends ConsumerState<SignatureScreen> {
-  final HandSignatureControl _signatureControl = HandSignatureControl();
+  // Daftar garis (setiap garis adalah list of Offset)
+  final List<List<Offset>> _strokes = [];
+  List<Offset> _currentStroke = [];
   bool _isSubmitting = false;
+  bool _isEmpty = true;
 
-  @override
-  void dispose() {
-    _signatureControl.dispose();
-    super.dispose();
+  // Key untuk mengambil gambar dari widget
+  final GlobalKey _signaturePadKey = GlobalKey();
+
+  void _onPanStart(DragStartDetails details) {
+    setState(() {
+      _currentStroke = [details.localPosition];
+      _isEmpty = false;
+    });
+  }
+
+  void _onPanUpdate(DragUpdateDetails details) {
+    setState(() {
+      _currentStroke.add(details.localPosition);
+    });
+  }
+
+  void _onPanEnd(DragEndDetails details) {
+    setState(() {
+      if (_currentStroke.isNotEmpty) {
+        _strokes.add(List.from(_currentStroke));
+        _currentStroke = [];
+      }
+    });
+  }
+
+  void _clearSignature() {
+    setState(() {
+      _strokes.clear();
+      _currentStroke = [];
+      _isEmpty = true;
+    });
+  }
+
+  Future<String?> _captureSignatureAsBase64() async {
+    try {
+      // Render signature ke gambar menggunakan RepaintBoundary
+      final RenderRepaintBoundary boundary =
+          _signaturePadKey.currentContext!.findRenderObject()!
+              as RenderRepaintBoundary;
+      final ui.Image image = await boundary.toImage(pixelRatio: 2.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return null;
+      return base64Encode(byteData.buffer.asUint8List());
+    } catch (e) {
+      return null;
+    }
   }
 
   Future<void> _submitAudit() async {
-    if (!_signatureControl.isFilled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tanda tangan wajib diisi.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+    if (_isEmpty || _strokes.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tanda tangan wajib diisi sebelum mengirim.'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
       return;
     }
 
     setState(() => _isSubmitting = true);
 
     try {
-      // Get signature as PNG bytes
-      final byteData = await _signatureControl.toImage(
-        color: Colors.black,
-        background: Colors.white,
-        fit: true,
-      );
+      final signatureBase64 = await _captureSignatureAsBase64();
 
-      if (byteData == null) throw Exception('Gagal membuat tanda tangan');
+      if (signatureBase64 == null) {
+        throw Exception('Gagal mengambil gambar tanda tangan');
+      }
 
-      final signatureBase64 = base64Encode(byteData.buffer.asUint8List());
-
-      // Submit audit for review
       await ref.read(auditRepositoryProvider).submitForReview(
-        widget.auditId,
-        signatureBase64,
-      );
+            widget.auditId,
+            signatureBase64,
+          );
 
-      // Invalidate providers
       ref.invalidate(auditDetailProvider(widget.auditId));
       ref.invalidate(auditListProvider);
 
@@ -64,14 +106,16 @@ class _SignatureScreenState extends ConsumerState<SignatureScreen> {
           context: context,
           barrierDismissible: false,
           builder: (context) => AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             icon: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: AppColors.successLight,
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 48),
+              child: const Icon(Icons.check_circle_rounded,
+                  color: AppColors.success, size: 48),
             ),
             title: const Text('Audit Terkirim!'),
             content: const Text(
@@ -91,12 +135,15 @@ class _SignatureScreenState extends ConsumerState<SignatureScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -111,14 +158,19 @@ class _SignatureScreenState extends ConsumerState<SignatureScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Tanda Tangan'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Info card
+            // ─── Info Banner ───
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: AppColors.infoLight,
@@ -126,11 +178,19 @@ class _SignatureScreenState extends ConsumerState<SignatureScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline, color: AppColors.info),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.info.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.info_outline,
+                        color: AppColors.info, size: 20),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Tanda tangan Anda mengkonfirmasi bahwa semua data audit yang diinput sudah benar dan lengkap.',
+                      'Tanda tangan mengkonfirmasi semua data audit sudah benar dan lengkap.',
                       style: TextStyle(color: AppColors.info, fontSize: 13),
                     ),
                   ),
@@ -138,94 +198,190 @@ class _SignatureScreenState extends ConsumerState<SignatureScreen> {
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
             Text(
               'Tanda Tangan Auditor',
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
-              'Gunakan jari Anda untuk menandatangani di area di bawah',
-              style: Theme.of(context).textTheme.bodySmall,
+              'Gunakan jari Anda untuk menandatangani di area putih di bawah',
+              style: TextStyle(color: Colors.grey[600], fontSize: 13),
             ),
             const SizedBox(height: 12),
 
-            // Signature pad
+            // ─── Signature Pad ───
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isDark ? AppColors.darkDivider : AppColors.divider,
-                    width: 2,
+                    color: _isEmpty
+                        ? (isDark ? AppColors.darkDivider : AppColors.divider)
+                        : AppColors.primary,
+                    width: _isEmpty ? 2 : 2,
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 10,
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
                   ],
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: HandSignature(
-                    control: _signatureControl,
+                child: RepaintBoundary(
+                  key: _signaturePadKey,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onPanStart: _onPanStart,
+                      onPanUpdate: _onPanUpdate,
+                      onPanEnd: _onPanEnd,
+                      child: CustomPaint(
+                        // foregroundPainter: digambar DI ATAS child (bukan di bawah)
+                        foregroundPainter: _SignaturePainter(
+                          strokes: _strokes,
+                          currentStroke: _currentStroke,
+                        ),
+                        child: Container(
+                          color: Colors.white,
+                          child: _isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.draw_outlined,
+                                          size: 48,
+                                          color: Colors.grey[300]),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Area Tanda Tangan',
+                                        style: TextStyle(
+                                          color: Colors.grey[400],
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : null,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-            // Clear button
-            Center(
-              child: TextButton.icon(
-                onPressed: () {
-                  _signatureControl.clear();
-                },
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Hapus & Ulangi'),
-              ),
+            // ─── Action Buttons ───
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _clearSignature,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      side: BorderSide(color: Colors.grey[400]!),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon:
+                        const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('Hapus'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSubmitting ? null : _submitAudit,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.success,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    icon: _isSubmitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.send_rounded, size: 18),
+                    label:
+                        Text(_isSubmitting ? 'Mengirim...' : 'Kirim Audit'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.darkSurface : AppColors.surface,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          child: ElevatedButton(
-            onPressed: _isSubmitting ? null : _submitAudit,
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.success),
-            child: _isSubmitting
-                ? const SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                  )
-                : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.send_rounded, size: 20),
-                      SizedBox(width: 8),
-                      Text('Kirim Audit untuk Review'),
-                    ],
-                  ),
-          ),
-        ),
-      ),
     );
+  }
+}
+
+/// CustomPainter yang menggambar stroke tanda tangan
+class _SignaturePainter extends CustomPainter {
+  final List<List<Offset>> strokes;
+  final List<Offset> currentStroke;
+
+  _SignaturePainter({required this.strokes, required this.currentStroke});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Tidak perlu gambar background — Container child sudah putih
+    final paint = Paint()
+      ..color = Colors.black87
+      ..strokeWidth = 3.0
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+
+    // Gambar semua stroke yang sudah selesai
+    for (final stroke in strokes) {
+      _drawStroke(canvas, stroke, paint);
+    }
+
+    // Gambar stroke yang sedang digambar
+    if (currentStroke.isNotEmpty) {
+      _drawStroke(canvas, currentStroke, paint);
+    }
+  }
+
+  void _drawStroke(Canvas canvas, List<Offset> stroke, Paint paint) {
+    if (stroke.isEmpty) return;
+    if (stroke.length == 1) {
+      // Titik tunggal (tap)
+      canvas.drawCircle(stroke[0], paint.strokeWidth / 2, paint);
+      return;
+    }
+
+    final path = Path();
+    path.moveTo(stroke[0].dx, stroke[0].dy);
+
+    for (int i = 1; i < stroke.length; i++) {
+      path.lineTo(stroke[i].dx, stroke[i].dy);
+    }
+
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(_SignaturePainter oldDelegate) {
+    return oldDelegate.strokes != strokes ||
+        oldDelegate.currentStroke != currentStroke;
   }
 }

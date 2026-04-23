@@ -191,30 +191,33 @@ class _AuditListScreenState extends ConsumerState<AuditListScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                Expanded(
-                  child: _QuickActionCard(
-                    icon: Icons.add_location_alt_rounded,
-                    label: 'Lokasi',
-                    color: AppColors.info,
-                    onTap: () => context.push('/locations'),
-                  ),
-                ),
-                const SizedBox(width: 8),
                 if (user?.canReview ?? false)
                   Expanded(
+                    flex: 2,
                     child: _QuickActionCard(
-                      icon: Icons.dashboard_rounded,
-                      label: 'Dashboard',
+                      icon: Icons.speed_rounded,
+                      label: 'Dashboard Review',
+                      subtitle: 'Persetujuan Audit',
                       color: AppColors.secondary,
                       onTap: () => context.push('/dashboard'),
                     ),
+                  )
+                else
+                  Expanded(
+                    child: _QuickActionCard(
+                      icon: Icons.add_location_alt_rounded,
+                      label: 'Mulai Audit',
+                      subtitle: 'Pilih Lokasi',
+                      color: AppColors.primary,
+                      onTap: () => context.push('/locations'),
+                    ),
                   ),
-                if (user?.canReview ?? false)
-                  const SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Expanded(
                   child: _QuickActionCard(
                     icon: Icons.description_rounded,
                     label: 'Laporan',
+                    subtitle: 'PDF/Arsip',
                     color: AppColors.success,
                     onTap: () => context.push('/reports'),
                   ),
@@ -319,12 +322,14 @@ class _AuditListScreenState extends ConsumerState<AuditListScreen> {
 class _QuickActionCard extends StatelessWidget {
   final IconData icon;
   final String label;
+  final String? subtitle;
   final Color color;
   final VoidCallback onTap;
 
   const _QuickActionCard({
     required this.icon,
     required this.label,
+    this.subtitle,
     required this.color,
     required this.onTap,
   });
@@ -341,16 +346,24 @@ class _QuickActionCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Column(
             children: [
-              Icon(icon, color: color, size: 24),
+              Icon(icon, color: color, size: 28),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: TextStyle(
                   color: color,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
+              if (subtitle != null)
+                Text(
+                  subtitle!,
+                  style: TextStyle(
+                    color: color.withValues(alpha: 0.7),
+                    fontSize: 10,
+                  ),
+                ),
             ],
           ),
         ),

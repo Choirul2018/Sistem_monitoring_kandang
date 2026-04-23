@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import 'audit_model.dart';
 import 'audit_part_model.dart';
 import 'photo_model.dart';
+import 'livestock_sample_model.dart';
 import '../../../core/constants/supabase_constants.dart';
 import '../../../local_db/hive_service.dart';
 
@@ -238,6 +239,54 @@ class AuditRepository {
         .where((p) => p.auditPartId == auditPartId)
         .toList()
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+  }
+
+  // ═══════════════════════════════════════════
+  //  LIVESTOCK SAMPLES
+  // ═══════════════════════════════════════════
+
+  Future<void> saveLivestockSample(LivestockSampleModel sample) async {
+    sample.synced = false;
+    await HiveService.livestockSamples.put(sample.id, sample);
+
+    try {
+      await _client
+          .from(SupabaseConstants.auditLivestockSamplesTable)
+          .upsert(sample.toJson());
+      sample.synced = true;
+      await HiveService.livestockSamples.put(sample.id, sample);
+    } catch (_) {
+      _addToSyncQueue('livestock_sample', sample.id, 'create');
+    }
+  }
+
+  Future<List<LivestockSampleModel>> getLivestockSamplesForAudit(String auditId) async {
+    // Local first
+    final local = HiveService.livestockSamples.values
+        .where((s) => s.auditId == auditId)
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    if (local.isNotEmpty) return local;
+
+    try {
+      final response = await _client
+          .from(SupabaseConstants.auditLivestockSamplesTable)
+          .select()
+          .eq('audit_id', auditId);
+
+      final samples = (response as List)
+          .map((json) => LivestockSampleModel.fromJson(json))
+          .toList();
+
+      for (final sample in samples) {
+        await HiveService.livestockSamples.put(sample.id, sample);
+      }
+
+      return samples;
+    } catch (_) {
+      return local;
+    }
   }
 
   // ═══════════════════════════════════════════

@@ -103,7 +103,7 @@ class AuditModel extends HiveObject {
   bool get isApproved => status == 'approved';
   bool get isRejected => status == 'rejected';
   bool get isCompleted => isApproved;
-  bool get isLocked => isApproved;
+  bool get isLocked => isApproved || isPendingReview;
 
   double get progressPercent {
     if (parts.isEmpty) return 0;

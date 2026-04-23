@@ -8,6 +8,7 @@ import '../features/audit/presentation/audit_part_screen.dart';
 import '../features/audit/presentation/camera_capture_screen.dart';
 import '../features/audit/presentation/audit_summary_screen.dart';
 import '../features/audit/presentation/signature_screen.dart';
+import '../features/audit/presentation/livestock_sampling_screen.dart';
 import '../features/location/presentation/location_list_screen.dart';
 import '../features/location/presentation/location_map_screen.dart';
 import '../features/dashboard/presentation/dashboard_screen.dart';
@@ -24,10 +25,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLoginRoute = state.uri.path == '/login';
 
       if (!isAuth && !isLoginRoute) return '/login';
-      if (isAuth && isLoginRoute) return '/home';
+      if (isAuth && isLoginRoute) {
+        final user = authState.valueOrNull;
+        if (user != null && user.canReview) return '/dashboard';
+        return '/home';
+      }
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/',
+        redirect: (context, state) => '/login',
+      ),
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
@@ -89,6 +98,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/audit/:id/signature',
         builder: (context, state) => SignatureScreen(
+          auditId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/audit/:id/livestock',
+        builder: (context, state) => LivestockSamplingScreen(
           auditId: state.pathParameters['id']!,
         ),
       ),

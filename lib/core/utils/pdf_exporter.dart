@@ -6,11 +6,13 @@ import 'package:path_provider/path_provider.dart';
 import '../../features/audit/data/audit_model.dart';
 import '../../features/audit/data/audit_part_model.dart';
 import '../../features/audit/data/photo_model.dart';
+import '../../features/audit/data/livestock_sample_model.dart';
 
 class PdfExporter {
   static Future<File> generateReport({
     required AuditModel audit,
     required List<AuditPartModel> parts,
+    required List<LivestockSampleModel> samples,
     required Map<String, List<dynamic>> photos,
   }) async {
     final pdf = pw.Document();
@@ -100,8 +102,43 @@ class PdfExporter {
             ],
           );
         },
-      ),
-    );
+    // ─── Livestock Samples Table ───
+    if (samples.isNotEmpty) {
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(40),
+          build: (context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  'Data Sampel Ternak',
+                  style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+                ),
+                pw.SizedBox(height: 16),
+                pw.TableHelper.fromTextArray(
+                  headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+                  cellStyle: const pw.TextStyle(fontSize: 10),
+                  headerDecoration: const pw.BoxDecoration(color: PdfColors.teal50),
+                  cellPadding: const pw.EdgeInsets.all(6),
+                  headers: ['No', 'Jenis Hewan', 'Status', 'Catatan'],
+                  data: List.generate(samples.length, (index) {
+                    final s = samples[index];
+                    return [
+                      '${index + 1}',
+                      s.animalType.toUpperCase(),
+                      s.hasDisease ? 'ADA PENYAKIT' : 'SEHAT',
+                      s.diseaseNotes ?? '-',
+                    ];
+                  }),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+    }
 
     // ─── Detail Pages (one per part) ───
     for (final part in parts) {

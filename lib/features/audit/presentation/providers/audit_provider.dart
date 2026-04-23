@@ -4,6 +4,7 @@ import 'package:sistem_monitoring_kandang/features/audit/data/audit_repository.d
 import 'package:sistem_monitoring_kandang/features/audit/data/audit_model.dart';
 import 'package:sistem_monitoring_kandang/features/audit/data/audit_part_model.dart';
 import 'package:sistem_monitoring_kandang/features/audit/data/photo_model.dart';
+import 'package:sistem_monitoring_kandang/features/audit/data/livestock_sample_model.dart';
 import 'package:sistem_monitoring_kandang/features/auth/presentation/auth_provider.dart';
 import 'package:sistem_monitoring_kandang/features/location/data/location_repository.dart';
 import 'package:sistem_monitoring_kandang/features/location/data/location_model.dart';
@@ -60,6 +61,14 @@ final partPhotosProvider = FutureProvider.family<List<PhotoModel>, String>(
   (ref, auditPartId) async {
     final repo = ref.read(auditRepositoryProvider);
     return repo.getPhotosForPart(auditPartId);
+  },
+);
+
+// ─── Livestock Samples Provider ───
+final auditLivestockSamplesProvider = FutureProvider.family<List<LivestockSampleModel>, String>(
+  (ref, auditId) async {
+    final repo = ref.read(auditRepositoryProvider);
+    return repo.getLivestockSamplesForAudit(auditId);
   },
 );
 

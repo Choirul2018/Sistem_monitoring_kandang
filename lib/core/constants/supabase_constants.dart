@@ -12,6 +12,7 @@ class SupabaseConstants {
   static const String auditsTable = 'audits';
   static const String auditPartsTable = 'audit_parts';
   static const String auditPhotosTable = 'audit_photos';
+  static const String auditLivestockSamplesTable = 'livestock_samples';
 
   // ─── Storage Buckets ───
   static const String photosBucket = 'audit-photos';

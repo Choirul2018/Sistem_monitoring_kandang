@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'providers/audit_provider.dart';
 import '../data/audit_part_model.dart';
+import '../data/livestock_sample_model.dart';
 import '../../../app/theme/app_colors.dart';
 
 class AuditSummaryScreen extends ConsumerWidget {
@@ -13,6 +15,7 @@ class AuditSummaryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final auditAsync = ref.watch(auditDetailProvider(auditId));
     final partsAsync = ref.watch(auditPartsProvider(auditId));
+    final samplesAsync = ref.watch(auditLivestockSamplesProvider(auditId));
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -113,7 +116,70 @@ class AuditSummaryScreen extends ConsumerWidget {
                     Text('Detail Per Bagian', style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 12),
 
-                    ...parts.map((part) => _PartSummaryCard(part: part)),
+                    ...parts.map((p) => _PartSummaryCard(part: p)).toList(),
+
+                    const SizedBox(height: 24),
+
+                    // ─── Livestock Samples Section ───
+                    Row(
+                      children: [
+                        Text('Sampel Hewan', style: Theme.of(context).textTheme.titleMedium),
+                        const Spacer(),
+                        TextButton.icon(
+                          onPressed: () => context.push('/audit/$auditId/livestock'),
+                          icon: const Icon(Icons.add_rounded, size: 18),
+                          label: const Text('Kelola Sampel'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    samplesAsync.when(
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => Text('Error loading samples: $e'),
+                      data: (samples) {
+                        if (samples.isEmpty) {
+                          return _EmptyActionCard(
+                            icon: Icons.pets_rounded,
+                            message: 'Belum ada sampel hewan diambil',
+                            buttonLabel: 'Ambil Sampel Hewan',
+                            onTap: () => context.push('/audit/$auditId/livestock'),
+                          );
+                        }
+                        return Column(
+                          children: samples.map((s) => _LivestockSummaryItem(sample: s)).toList(),
+                        );
+                      },
+                    ),
+
+                    // ─── Signature Preview ───
+                    if (audit.signatureData != null) ...[
+                      const SizedBox(height: 24),
+                      Text('Tanda Tangan Anda', style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: isDark ? AppColors.darkDivider : AppColors.divider),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: Image.memory(
+                            base64Decode(audit.signatureData!),
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Center(
+                        child: Text(
+                          'Tanda tangan berhasil disimpan secara lokal',
+                          style: TextStyle(color: AppColors.success, fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
 
                     const SizedBox(height: 100),
                   ],
@@ -123,32 +189,76 @@ class AuditSummaryScreen extends ConsumerWidget {
           );
         },
       ),
-      bottomNavigationBar: SafeArea(
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.darkSurface : AppColors.surface,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, -2),
+                    const SizedBox(height: 100),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+      bottomNavigationBar: samplesAsync.when(
+        data: (samples) {
+          final hasSamples = samples.isNotEmpty;
+          return SafeArea(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : AppColors.surface,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: ElevatedButton(
-            onPressed: () => context.push('/audit/$auditId/signature'),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.draw_rounded, size: 20),
-                SizedBox(width: 8),
-                Text('Tanda Tangan & Kirim'),
-              ],
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!hasSamples)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline, color: AppColors.error, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Wajib mengambil minimal satu sampel hewan sebelum mengirim.',
+                              style: TextStyle(color: AppColors.error, fontSize: 12, fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: hasSamples 
+                          ? () => context.push('/audit/$auditId/signature') 
+                          : null, // Tombol mati jika belum ada sampel
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: hasSamples ? AppColors.primary : AppColors.textTertiary.withValues(alpha: 0.3),
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.draw_rounded, size: 20),
+                          SizedBox(width: 8),
+                          Text('Tanda Tangan & Kirim'),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
+        loading: () => const SizedBox.shrink(),
+        error: (_, __) => const SizedBox.shrink(),
       ),
     );
   }
@@ -272,6 +382,80 @@ class _PartSummaryCard extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _LivestockSummaryItem extends StatelessWidget {
+  final LivestockSampleModel sample;
+  const _LivestockSummaryItem({required this.sample});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 6),
+      child: ListTile(
+        dense: true,
+        leading: Icon(
+          sample.animalType == 'ayam' ? Icons.egg_rounded : Icons.waves_rounded,
+          color: AppColors.primary,
+          size: 20,
+        ),
+        title: Text(
+          '${sample.animalType.toUpperCase()} - ${sample.hasDisease ? 'Ada Penyakit' : 'Sehat'}',
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+        ),
+        subtitle: sample.diseaseNotes != null
+            ? Text(sample.diseaseNotes!, style: const TextStyle(fontSize: 11))
+            : null,
+        trailing: Icon(
+          sample.hasDisease ? Icons.error_rounded : Icons.check_circle_rounded,
+          color: sample.hasDisease ? AppColors.error : AppColors.success,
+          size: 18,
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyActionCard extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  final String buttonLabel;
+  final VoidCallback onTap;
+
+  const _EmptyActionCard({
+    required this.icon,
+    required this.message,
+    required this.buttonLabel,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 40, color: AppColors.textTertiary),
+          const SizedBox(height: 12),
+          Text(message, style: const TextStyle(fontSize: 13)),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: onTap,
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(200, 40),
+            ),
+            child: Text(buttonLabel),
+          ),
+        ],
       ),
     );
   }
