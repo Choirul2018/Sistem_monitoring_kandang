@@ -456,6 +456,8 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
   }
 
   Widget _buildReviewControls() {
+    final bool validationFailed = _validationPassed == false;
+    
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
@@ -482,14 +484,17 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
           children: [
             FloatingActionButton(
               heroTag: 'accept',
-              onPressed: (_validationPassed ?? false) ? _acceptPhoto : null,
-              backgroundColor: (_validationPassed ?? false) ? AppColors.success : Colors.grey,
-              child: const Icon(Icons.check_rounded, size: 28),
+              onPressed: _acceptPhoto,
+              backgroundColor: validationFailed ? AppColors.warning : AppColors.success,
+              child: Icon(
+                validationFailed ? Icons.warning_amber_rounded : Icons.check_rounded, 
+                size: 28
+              ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Simpan',
-              style: TextStyle(color: Colors.white, fontSize: 12),
+            Text(
+              validationFailed ? 'Simpan Saja' : 'Simpan',
+              style: const TextStyle(color: Colors.white, fontSize: 12),
             ),
           ],
         ),

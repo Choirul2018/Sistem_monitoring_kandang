@@ -5,21 +5,87 @@ import 'package:go_router/go_router.dart';
 import 'providers/audit_provider.dart';
 import '../data/audit_part_model.dart';
 import '../data/livestock_sample_model.dart';
+import '../data/audit_model.dart';
 import '../../../app/theme/app_colors.dart';
 
-class AuditSummaryScreen extends ConsumerWidget {
+class AuditSummaryScreen extends ConsumerStatefulWidget {
   final String auditId;
   const AuditSummaryScreen({super.key, required this.auditId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AuditSummaryScreen> createState() => _AuditSummaryScreenState();
+}
+
+class _AuditSummaryScreenState extends ConsumerState<AuditSummaryScreen> {
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref, AuditModel audit) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus Audit?'),
+        content: Text(
+          'Apakah Anda yakin ingin menghapus audit di "${audit.locationName ?? 'Lokasi'}"? '
+          'Semua data terkait termasuk foto akan dihapus permanen.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        final repo = ref.read(auditRepositoryProvider);
+        await repo.deleteAudit(audit.id);
+        ref.invalidate(auditListProvider);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Audit berhasil dihapus')),
+          );
+          context.go('/audits'); // Go back to list
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal menghapus audit: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auditId = widget.auditId;
     final auditAsync = ref.watch(auditDetailProvider(auditId));
     final partsAsync = ref.watch(auditPartsProvider(auditId));
     final samplesAsync = ref.watch(auditLivestockSamplesProvider(auditId));
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Ringkasan Audit')),
+      appBar: AppBar(
+        title: const Text('Ringkasan Audit'),
+        actions: [
+          auditAsync.when(
+            data: (audit) => audit != null
+                ? IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+                    tooltip: 'Hapus Audit',
+                    onPressed: () => _confirmDelete(context, ref, audit),
+                  )
+                : const SizedBox.shrink(),
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+        ],
+      ),
       body: auditAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),

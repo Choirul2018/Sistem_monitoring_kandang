@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'providers/audit_provider.dart';
 import '../data/audit_part_model.dart';
+import '../data/audit_model.dart';
 import '../../../app/theme/app_colors.dart';
 
 class AuditDetailScreen extends ConsumerStatefulWidget {
@@ -14,6 +15,50 @@ class AuditDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _AuditDetailScreenState extends ConsumerState<AuditDetailScreen> {
+  Future<void> _confirmDelete(AuditModel audit) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus Audit?'),
+        content: Text(
+          'Apakah Anda yakin ingin menghapus audit di "${audit.locationName ?? 'Lokasi'}"? '
+          'Semua data terkait termasuk foto akan dihapus permanen.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        final repo = ref.read(auditRepositoryProvider);
+        await repo.deleteAudit(audit.id);
+        ref.invalidate(auditListProvider);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Audit berhasil dihapus')),
+          );
+          context.go('/home'); // Go back to home
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal menghapus audit: $e')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auditAsync = ref.watch(auditDetailProvider(widget.auditId));
@@ -27,6 +72,19 @@ class _AuditDetailScreenState extends ConsumerState<AuditDetailScreen> {
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.go('/home'),
         ),
+        actions: [
+          auditAsync.when(
+            data: (audit) => audit != null && !audit.isLocked
+                ? IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+                    tooltip: 'Hapus Audit',
+                    onPressed: () => _confirmDelete(audit),
+                  )
+                : const SizedBox.shrink(),
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+        ],
       ),
       body: auditAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -134,11 +192,9 @@ class _AuditDetailScreenState extends ConsumerState<AuditDetailScreen> {
                           isCompleted: isCompleted,
                           isLocked: isLocked,
                           isAuditLocked: audit.isLocked,
-                          onTap: (isLocked || audit.isLocked)
-                              ? null
-                              : () {
-                                  context.push('/audit/${widget.auditId}/part/$index');
-                                },
+                          onTap: () {
+                            context.push('/audit/${widget.auditId}/part/$index');
+                          },
                         );
                       },
                     );

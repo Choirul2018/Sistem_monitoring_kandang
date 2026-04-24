@@ -7,24 +7,59 @@ class AiService {
   //  BLUR DETECTION (Laplacian Variance)
   // ═══════════════════════════════════════════
 
-  /// Returns blur score. Higher = sharper. Below threshold = blurry.
-  Future<double> detectBlur(File imageFile, {double threshold = 100.0}) async {
-    final bytes = await imageFile.readAsBytes();
-    var image = img.decodeImage(bytes);
-    if (image == null) return 0;
+  // ═══════════════════════════════════════════
+  //  COMBINED VALIDATION
+  // ═══════════════════════════════════════════
 
-    // Resize for faster processing
-    if (image.width > 640) {
-      image = img.copyResize(image, width: 640);
+  Future<PhotoValidationResult> validatePhoto(File imageFile) async {
+    final bytes = await imageFile.readAsBytes();
+    final fullImage = img.decodeImage(bytes);
+    
+    if (fullImage == null) {
+      return PhotoValidationResult(
+        isValid: false,
+        blurResult: BlurResult(score: 0, isBlurry: true, message: 'Gagal memproses file.'),
+        exposureResult: ExposureResult(meanBrightness: 0, status: ExposureStatus.unknown, message: 'Gagal memproses file.'),
+        isEmpty: true,
+        issues: ['File foto rusak atau tidak terbaca.'],
+      );
     }
 
-    // Convert to grayscale
+    // Use a resized version for all AI checks to speed up processing
+    final processingImage = fullImage.width > 640 
+        ? img.copyResize(fullImage, width: 640) 
+        : fullImage;
+
+    final blurResult = await _checkBlur(processingImage);
+    final exposureResult = await _checkExposure(processingImage);
+    final isEmpty = await _isEmptyImage(processingImage);
+
+    final issues = <String>[];
+
+    if (blurResult.isBlurry) issues.add(blurResult.message);
+    if (exposureResult.status != ExposureStatus.good) {
+      issues.add(exposureResult.message);
+    }
+    if (isEmpty) {
+      issues.add('Foto tidak valid: hanya menampilkan permukaan kosong.');
+    }
+
+    return PhotoValidationResult(
+      isValid: issues.isEmpty,
+      blurResult: blurResult,
+      exposureResult: exposureResult,
+      isEmpty: isEmpty,
+      issues: issues,
+    );
+  }
+
+  // ═══════════════════════════════════════════
+  //  INTERNAL HELPERS (Optimized)
+  // ═══════════════════════════════════════════
+
+  Future<BlurResult> _checkBlur(img.Image image) async {
     final gray = img.grayscale(image);
 
-    // Apply Laplacian kernel
-    // [0, 1, 0]
-    // [1,-4, 1]
-    // [0, 1, 0]
     double sum = 0;
     double sumSq = 0;
     int count = 0;
@@ -44,17 +79,12 @@ class AiService {
       }
     }
 
-    if (count == 0) return 0;
+    final threshold = 100.0;
+    if (count == 0) return BlurResult(score: 0, isBlurry: true, message: 'Gagal analisis ketajaman.');
 
     final mean = sum / count;
     final variance = (sumSq / count) - (mean * mean);
-
-    return variance * 10000; // Scale for readability
-  }
-
-  /// Check if image is blurry
-  Future<BlurResult> checkBlur(File imageFile, {double threshold = 100.0}) async {
-    final score = await detectBlur(imageFile, threshold: threshold);
+    final score = variance * 10000;
     final isBlurry = score < threshold;
 
     return BlurResult(
@@ -66,27 +96,7 @@ class AiService {
     );
   }
 
-  // ═══════════════════════════════════════════
-  //  EXPOSURE CHECK (Histogram Analysis)
-  // ═══════════════════════════════════════════
-
-  /// Returns exposure score (0-255). <40 = too dark, >220 = too bright
-  Future<ExposureResult> checkExposure(File imageFile) async {
-    final bytes = await imageFile.readAsBytes();
-    var image = img.decodeImage(bytes);
-    if (image == null) {
-      return ExposureResult(
-        meanBrightness: 0,
-        status: ExposureStatus.unknown,
-        message: 'Gagal memproses foto.',
-      );
-    }
-
-    // Resize for faster processing
-    if (image.width > 640) {
-      image = img.copyResize(image, width: 640);
-    }
-
+  Future<ExposureResult> _checkExposure(img.Image image) async {
     double totalBrightness = 0;
     int count = 0;
 
@@ -104,10 +114,10 @@ class AiService {
     ExposureStatus status;
     String message;
 
-    if (mean < 40) {
+    if (mean < 30) { // Slightly lower threshold for dark cages
       status = ExposureStatus.tooDark;
       message = 'Foto terlalu gelap. Gunakan flash atau cari pencahayaan lebih baik.';
-    } else if (mean > 220) {
+    } else if (mean > 230) { // Slightly higher threshold
       status = ExposureStatus.tooBright;
       message = 'Foto terlalu terang. Hindari cahaya langsung.';
     } else {
@@ -122,28 +132,17 @@ class AiService {
     );
   }
 
-  // ═══════════════════════════════════════════
-  //  EMPTY/INVALID IMAGE DETECTION
-  // ═══════════════════════════════════════════
+  Future<bool> _isEmptyImage(img.Image image, {double minVariance = 12.0}) async {
+    // Smaller version for variance check
+    final small = image.width > 320 ? img.copyResize(image, width: 320) : image;
 
-  /// Detects blank/uniform images (wall, sky, floor only)
-  Future<bool> isEmptyImage(File imageFile, {double minVariance = 15.0}) async {
-    final bytes = await imageFile.readAsBytes();
-    var image = img.decodeImage(bytes);
-    if (image == null) return true;
-
-    if (image.width > 320) {
-      image = img.copyResize(image, width: 320);
-    }
-
-    // Calculate color variance
     double rSum = 0, gSum = 0, bSum = 0;
     double rSumSq = 0, gSumSq = 0, bSumSq = 0;
     int count = 0;
 
-    for (int y = 0; y < image.height; y++) {
-      for (int x = 0; x < image.width; x++) {
-        final pixel = image.getPixel(x, y);
+    for (int y = 0; y < small.height; y++) {
+      for (int x = 0; x < small.width; x++) {
+        final pixel = small.getPixel(x, y);
         final r = pixel.r.toDouble();
         final g = pixel.g.toDouble();
         final b = pixel.b.toDouble();
@@ -165,34 +164,6 @@ class AiService {
     final totalVariance = (rVar + gVar + bVar) / 3;
 
     return totalVariance < minVariance;
-  }
-
-  // ═══════════════════════════════════════════
-  //  COMBINED VALIDATION
-  // ═══════════════════════════════════════════
-
-  Future<PhotoValidationResult> validatePhoto(File imageFile) async {
-    final blurResult = await checkBlur(imageFile);
-    final exposureResult = await checkExposure(imageFile);
-    final isEmpty = await isEmptyImage(imageFile);
-
-    final issues = <String>[];
-
-    if (blurResult.isBlurry) issues.add(blurResult.message);
-    if (exposureResult.status != ExposureStatus.good) {
-      issues.add(exposureResult.message);
-    }
-    if (isEmpty) {
-      issues.add('Foto tidak valid: hanya menampilkan permukaan kosong.');
-    }
-
-    return PhotoValidationResult(
-      isValid: issues.isEmpty,
-      blurResult: blurResult,
-      exposureResult: exposureResult,
-      isEmpty: isEmpty,
-      issues: issues,
-    );
   }
 }
 

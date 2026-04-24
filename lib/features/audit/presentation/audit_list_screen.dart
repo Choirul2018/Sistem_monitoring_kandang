@@ -67,6 +67,49 @@ class _AuditListScreenState extends ConsumerState<AuditListScreen> {
     );
   }
 
+  Future<void> _confirmDelete(AuditModel audit) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus Audit?'),
+        content: Text(
+          'Apakah Anda yakin ingin menghapus audit di "${audit.locationName ?? 'Lokasi'}"? '
+          'Semua data terkait termasuk foto akan dihapus permanen.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        final repo = ref.read(auditRepositoryProvider);
+        await repo.deleteAudit(audit.id);
+        ref.invalidate(auditListProvider);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Audit berhasil dihapus')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal menghapus audit: $e')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final auditsAsync = ref.watch(auditListProvider);
@@ -301,7 +344,10 @@ class _AuditListScreenState extends ConsumerState<AuditListScreen> {
                     itemCount: audits.length,
                     itemBuilder: (context, index) {
                       final audit = audits[index];
-                      return _AuditCard(audit: audit);
+                      return _AuditCard(
+                        audit: audit,
+                        onDelete: () => _confirmDelete(audit),
+                      );
                     },
                   ),
                 );
@@ -372,14 +418,23 @@ class _QuickActionCard extends StatelessWidget {
   }
 }
 
-class _AuditCard extends StatelessWidget {
+class _AuditCard extends ConsumerWidget {
   final AuditModel audit;
+  final VoidCallback onDelete;
 
-  const _AuditCard({required this.audit});
+  const _AuditCard({
+    required this.audit,
+    required this.onDelete,
+  });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(currentUserProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isAdmin = user?.isAdmin ?? false;
+
+    // Only allow deletion for non-approved audits, or if admin
+    final canDelete = !audit.isApproved || isAdmin;
 
     Color statusColor;
     IconData statusIcon;
@@ -418,15 +473,10 @@ class _AuditCard extends StatelessWidget {
     }
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
-        onTap: () {
-          if (audit.isLocked) {
-            context.push('/report/${audit.id}');
-          } else {
-            context.push('/audit/${audit.id}');
-          }
-        },
+        onTap: () => context.push('/audit/${audit.id}'),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -450,31 +500,59 @@ class _AuditCard extends StatelessWidget {
                       children: [
                         Text(
                           audit.locationName ?? 'Lokasi',
-                          style: Theme.of(context).textTheme.titleSmall,
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${audit.createdAt.day}/${audit.createdAt.month}/${audit.createdAt.year}',
+                          '${audit.createdAt.day}/${audit.createdAt.month}/${audit.createdAt.year} • ${audit.auditorName ?? 'Auditor'}',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      statusText,
-                      style: TextStyle(
-                        color: statusColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                  if (canDelete)
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_vert_rounded, size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 120),
+                      onSelected: (value) {
+                        if (value == 'delete') {
+                          onDelete();
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_outline_rounded,
+                                  color: AppColors.error, size: 18),
+                              SizedBox(width: 8),
+                              Text('Hapus Audit',
+                                  style: TextStyle(color: AppColors.error, fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        statusText,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  ),
                 ],
               ),
               if (audit.status == 'in_progress') ...[
@@ -492,19 +570,68 @@ class _AuditCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  'Progress: ${(audit.progressPercent * 100).toInt()}% — Bagian ${audit.currentPartIndex + 1}/${audit.parts.length}',
-                  style: Theme.of(context).textTheme.bodySmall,
+                Row(
+                  children: [
+                    Text(
+                      'Progress: ${(audit.progressPercent * 100).toInt()}%',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      'Bagian ${audit.currentPartIndex + 1}/${audit.parts.length}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                 ),
               ],
-              if (!audit.synced) ...[
+              if (audit.isApproved || audit.isRejected || audit.isPendingReview) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        statusText,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const Spacer(),
+                    if (!audit.synced)
+                      Row(
+                        children: [
+                          Icon(Icons.cloud_off_rounded, size: 14, color: AppColors.warning),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Belum sinkron',
+                            style: TextStyle(
+                              color: AppColors.warning,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ] else if (!audit.synced && audit.status != 'in_progress') ...[
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     Icon(Icons.cloud_off_rounded, size: 14, color: AppColors.warning),
                     const SizedBox(width: 4),
                     Text(
-                      'Belum tersinkronkan',
+                      'Belum sinkron',
                       style: TextStyle(
                         color: AppColors.warning,
                         fontSize: 11,

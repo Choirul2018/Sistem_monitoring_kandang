@@ -336,6 +336,65 @@ class AuditRepository {
     return audits.first;
   }
 
+  Future<void> deleteAudit(String auditId) async {
+    // 1. Get all parts for this audit
+    final parts = HiveService.auditParts.values
+        .where((p) => p.auditId == auditId)
+        .toList();
+    final partIds = parts.map((p) => p.id).toList();
+
+    // 2. Delete photos for these parts from Hive
+    final photoKeys = HiveService.photos.keys.where((key) {
+      final photo = HiveService.photos.get(key);
+      return photo != null && partIds.contains(photo.auditPartId);
+    }).toList();
+    for (final key in photoKeys) {
+      await HiveService.photos.delete(key);
+    }
+
+    // 3. Delete livestock samples for this audit from Hive
+    final sampleKeys = HiveService.livestockSamples.keys.where((key) {
+      final sample = HiveService.livestockSamples.get(key);
+      return sample != null && sample.auditId == auditId;
+    }).toList();
+    for (final key in sampleKeys) {
+      await HiveService.livestockSamples.delete(key);
+    }
+
+    // 4. Delete audit parts from Hive
+    for (final partId in partIds) {
+      await HiveService.auditParts.delete(partId);
+    }
+
+    // 5. Delete audit record from Hive
+    await HiveService.audits.delete(auditId);
+
+    // 6. Clean up sync queue for this audit and its related items
+    final allDeletedIds = [
+      auditId,
+      ...partIds,
+      ...photoKeys.cast<String>(),
+      ...sampleKeys.cast<String>()
+    ];
+
+    final syncKeysToRemove = HiveService.syncQueue.keys.where((key) {
+      final item = HiveService.syncQueue.get(key);
+      return item != null && allDeletedIds.contains(item['id']);
+    }).toList();
+
+    for (final key in syncKeysToRemove) {
+      await HiveService.syncQueue.delete(key);
+    }
+
+    // 7. Try to delete from server
+    try {
+      await _client.from(SupabaseConstants.auditsTable).delete().eq('id', auditId);
+    } catch (_) {
+      // If offline, add delete action to sync queue
+      _addToSyncQueue('audit', auditId, 'delete');
+    }
+  }
+
   // ═══════════════════════════════════════════
   //  SYNC QUEUE
   // ═══════════════════════════════════════════
