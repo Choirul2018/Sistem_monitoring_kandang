@@ -30,12 +30,12 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<UserModel?>> {
   }
 
   Future<void> signIn({
-    required String email,
+    required String username,
     required String password,
   }) async {
     state = const AsyncValue.loading();
     try {
-      final user = await _repository.signIn(email: email, password: password);
+      final user = await _repository.signIn(username: username, password: password);
       state = AsyncValue.data(user);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -44,7 +44,7 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<UserModel?>> {
   }
 
   Future<void> signUp({
-    required String email,
+    required String username,
     required String password,
     required String fullName,
     required String role,
@@ -52,7 +52,7 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<UserModel?>> {
     state = const AsyncValue.loading();
     try {
       final user = await _repository.signUp(
-        email: email,
+        username: username,
         password: password,
         fullName: fullName,
         role: role,

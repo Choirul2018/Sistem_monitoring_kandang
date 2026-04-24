@@ -14,7 +14,7 @@ class UserModelAdapter extends TypeAdapter<UserModel> {
     };
     return UserModel(
       id: fields[0] as String,
-      email: fields[1] as String,
+      username: fields[1] as String,
       fullName: fields[2] as String,
       role: fields[3] as String,
       createdAt: fields[4] as DateTime,
@@ -28,7 +28,7 @@ class UserModelAdapter extends TypeAdapter<UserModel> {
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
-      ..write(obj.email)
+      ..write(obj.username)
       ..writeByte(2)
       ..write(obj.fullName)
       ..writeByte(3)

@@ -93,10 +93,13 @@ class _SignatureScreenState extends ConsumerState<SignatureScreen> {
         throw Exception('Gagal mengambil gambar tanda tangan');
       }
 
-      await ref.read(auditRepositoryProvider).submitForReview(
+      await ref.read(auditRepositoryProvider).submitAudit(
             widget.auditId,
             signatureBase64,
           );
+
+      // Trigger sync immediately to Laravel
+      ref.read(syncServiceProvider).syncAll();
 
       ref.invalidate(auditDetailProvider(widget.auditId));
       ref.invalidate(auditListProvider);
@@ -119,8 +122,7 @@ class _SignatureScreenState extends ConsumerState<SignatureScreen> {
             ),
             title: const Text('Audit Terkirim!'),
             content: const Text(
-              'Audit berhasil dikirim untuk review.\n'
-              'Kabag/Kadiv akan meninjau dan menyetujui laporan Anda.',
+              'Data audit telah berhasil disimpan dan sedang dikirim ke server Laravel.',
             ),
             actions: [
               ElevatedButton(

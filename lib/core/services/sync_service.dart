@@ -1,18 +1,21 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../local_db/hive_service.dart';
-import '../../core/constants/supabase_constants.dart';
-import '../../features/audit/data/photo_model.dart';
+import '../../features/sync/data/api_service.dart';
+
+final syncServiceProvider = Provider<SyncService>((ref) {
+  return SyncService(ref.read(apiServiceProvider));
+});
 
 class SyncService {
-  final SupabaseClient _client = Supabase.instance.client;
+  final ApiService _apiService;
   final Connectivity _connectivity = Connectivity();
   StreamSubscription? _connectivitySubscription;
   bool _isSyncing = false;
 
-  // ─── Start Listening for Connectivity ───
+  SyncService(this._apiService);
+
   void startListening() {
     _connectivitySubscription = _connectivity.onConnectivityChanged
         .listen((results) {
@@ -25,18 +28,16 @@ class SyncService {
     });
   }
 
-  // ─── Stop Listening ───
   void stopListening() {
     _connectivitySubscription?.cancel();
   }
 
-  // ─── Check if Online ───
   Future<bool> isOnline() async {
     final results = await _connectivity.checkConnectivity();
     return results.any((r) => r != ConnectivityResult.none);
   }
 
-  // ─── Sync All Pending Data ───
+  // ─── Sync All Pending Data to Laravel ───
   Future<SyncResult> syncAll() async {
     if (_isSyncing) return SyncResult(synced: 0, failed: 0, message: 'Sudah sedang sinkronisasi.');
     _isSyncing = true;
@@ -49,51 +50,43 @@ class SyncService {
         return SyncResult(synced: 0, failed: 0, message: 'Tidak ada koneksi internet.');
       }
 
-      // Sync audits
+      // ─── LARAVEL SYNC ───
       final unsyncedAudits = HiveService.audits.values.where((a) => !a.synced);
+      
       for (final audit in unsyncedAudits) {
+        // Hanya sinkronkan yang sudah selesai (approved) agar tidak setengah-setengah
+        if (audit.status != 'approved') continue;
+
         try {
-          await _client
-              .from(SupabaseConstants.auditsTable)
-              .upsert(audit.toJson());
-          audit.synced = true;
-          await HiveService.audits.put(audit.id, audit);
-          synced++;
+          // Cari bagian dan foto terkait audit ini
+          final parts = HiveService.auditParts.values.where((p) => p.auditId == audit.id).toList();
+          
+          final partIds = parts.map((p) => p.id).toSet();
+          final photos = HiveService.photos.values
+              .where((ph) => partIds.contains(ph.auditPartId))
+              .toList();
+
+          final success = await _apiService.sendAuditToLaravel(
+            audit: audit,
+            parts: parts,
+            photos: photos,
+          );
+
+          if (success) {
+            audit.synced = true;
+            await HiveService.audits.put(audit.id, audit);
+            
+            // Tandai bagian dan foto sebagai tersinkronisasi juga
+            for (var p in parts) { p.synced = true; await HiveService.auditParts.put(p.id, p); }
+            for (var ph in photos) { ph.synced = true; await HiveService.photos.put(ph.id, ph); }
+            
+            synced++;
+          } else {
+            failed++;
+          }
         } catch (e) {
           failed++;
         }
-      }
-
-      // Sync audit parts
-      final unsyncedParts = HiveService.auditParts.values.where((p) => !p.synced);
-      for (final part in unsyncedParts) {
-        try {
-          await _client
-              .from(SupabaseConstants.auditPartsTable)
-              .upsert(part.toJson());
-          part.synced = true;
-          await HiveService.auditParts.put(part.id, part);
-          synced++;
-        } catch (e) {
-          failed++;
-        }
-      }
-
-      // Sync photos (upload file + metadata)
-      final unsyncedPhotos = HiveService.photos.values.where((p) => !p.synced);
-      for (final photo in unsyncedPhotos) {
-        try {
-          await _syncPhoto(photo);
-          synced++;
-        } catch (e) {
-          failed++;
-        }
-      }
-
-      // Clear sync queue for successfully synced items
-      final keys = HiveService.syncQueue.keys.toList();
-      for (final key in keys) {
-        await HiveService.syncQueue.delete(key);
       }
     } finally {
       _isSyncing = false;
@@ -103,53 +96,17 @@ class SyncService {
       synced: synced,
       failed: failed,
       message: synced > 0
-          ? '$synced item berhasil disinkronkan.'
+          ? '$synced audit berhasil dikirim ke server Laravel.'
           : 'Semua data sudah tersinkronkan.',
     );
   }
 
-  // ─── Sync Single Photo ───
-  Future<void> _syncPhoto(PhotoModel photo) async {
-    final file = File(photo.localPath);
-    if (!await file.exists()) return;
-
-    // Upload to Supabase Storage
-    final remotePath = 'audits/${photo.auditPartId}/${photo.id}.jpg';
-    final bytes = await file.readAsBytes();
-
-    await _client.storage
-        .from(SupabaseConstants.photosBucket)
-        .uploadBinary(
-          remotePath,
-          bytes,
-          fileOptions: const FileOptions(
-            contentType: 'image/jpeg',
-            upsert: true,
-          ),
-        );
-
-    // Update metadata in database
-    photo.storagePath = remotePath;
-    photo.synced = true;
-
-    await _client
-        .from(SupabaseConstants.auditPhotosTable)
-        .upsert(photo.toJson());
-
-    await HiveService.photos.put(photo.id, photo);
-  }
-
-  // ─── Get Sync Status ───
   SyncStatus getSyncStatus() {
-    final unsyncedAudits = HiveService.audits.values.where((a) => !a.synced).length;
-    final unsyncedParts = HiveService.auditParts.values.where((p) => !p.synced).length;
-    final unsyncedPhotos = HiveService.photos.values.where((p) => !p.synced).length;
-    final total = unsyncedAudits + unsyncedParts + unsyncedPhotos;
+    final unsyncedAudits = HiveService.audits.values.where((a) => !a.synced && a.status == 'approved').length;
+    final total = unsyncedAudits;
 
     return SyncStatus(
       pendingAudits: unsyncedAudits,
-      pendingParts: unsyncedParts,
-      pendingPhotos: unsyncedPhotos,
       totalPending: total,
       isSyncing: _isSyncing,
     );
@@ -160,28 +117,13 @@ class SyncResult {
   final int synced;
   final int failed;
   final String message;
-
-  SyncResult({
-    required this.synced,
-    required this.failed,
-    required this.message,
-  });
+  SyncResult({required this.synced, required this.failed, required this.message});
 }
 
 class SyncStatus {
   final int pendingAudits;
-  final int pendingParts;
-  final int pendingPhotos;
   final int totalPending;
   final bool isSyncing;
-
-  SyncStatus({
-    required this.pendingAudits,
-    required this.pendingParts,
-    required this.pendingPhotos,
-    required this.totalPending,
-    required this.isSyncing,
-  });
-
+  SyncStatus({required this.pendingAudits, required this.totalPending, required this.isSyncing});
   bool get isFullySynced => totalPending == 0;
 }

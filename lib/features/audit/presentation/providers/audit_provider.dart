@@ -12,6 +12,7 @@ import 'package:sistem_monitoring_kandang/core/services/camera_service.dart';
 import 'package:sistem_monitoring_kandang/core/services/location_service.dart';
 import 'package:sistem_monitoring_kandang/core/services/ai_service.dart';
 import 'package:sistem_monitoring_kandang/core/services/sync_service.dart';
+import 'package:sistem_monitoring_kandang/features/sync/data/api_service.dart';
 import 'package:sistem_monitoring_kandang/core/constants/app_constants.dart';
 
 // ─── Repository Providers ───
@@ -21,7 +22,8 @@ final cameraServiceProvider = Provider((ref) => CameraService());
 final locationServiceProvider = Provider((ref) => LocationService());
 final aiServiceProvider = Provider((ref) => AiService());
 final syncServiceProvider = Provider<SyncService>((ref) {
-  final service = SyncService();
+  final apiService = ref.read(apiServiceProvider);
+  final service = SyncService(apiService);
   service.startListening();
   ref.onDispose(() => service.stopListening());
   return service;

@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
 class AiService {
@@ -13,6 +15,13 @@ class AiService {
 
   Future<PhotoValidationResult> validatePhoto(File imageFile) async {
     final bytes = await imageFile.readAsBytes();
+    
+    // Gunakan compute agar pengolahan gambar berjalan di background thread (Isolate)
+    // sehingga tidak membuat UI lag/freeze.
+    return await compute(_processValidation, bytes);
+  }
+
+  static PhotoValidationResult _processValidation(Uint8List bytes) {
     final fullImage = img.decodeImage(bytes);
     
     if (fullImage == null) {
@@ -25,14 +34,15 @@ class AiService {
       );
     }
 
-    // Use a resized version for all AI checks to speed up processing
+    final ai = AiService();
+    // Resizing for faster processing
     final processingImage = fullImage.width > 640 
         ? img.copyResize(fullImage, width: 640) 
         : fullImage;
 
-    final blurResult = await _checkBlur(processingImage);
-    final exposureResult = await _checkExposure(processingImage);
-    final isEmpty = await _isEmptyImage(processingImage);
+    final blurResult = ai._checkBlurSync(processingImage);
+    final exposureResult = ai._checkExposureSync(processingImage);
+    final isEmpty = ai._isEmptyImageSync(processingImage);
 
     final issues = <String>[];
 
@@ -54,10 +64,10 @@ class AiService {
   }
 
   // ═══════════════════════════════════════════
-  //  INTERNAL HELPERS (Optimized)
+  //  INTERNAL HELPERS (Optimized Sync)
   // ═══════════════════════════════════════════
 
-  Future<BlurResult> _checkBlur(img.Image image) async {
+  BlurResult _checkBlurSync(img.Image image) {
     final gray = img.grayscale(image);
 
     double sum = 0;
@@ -96,7 +106,7 @@ class AiService {
     );
   }
 
-  Future<ExposureResult> _checkExposure(img.Image image) async {
+  ExposureResult _checkExposureSync(img.Image image) {
     double totalBrightness = 0;
     int count = 0;
 
@@ -132,7 +142,7 @@ class AiService {
     );
   }
 
-  Future<bool> _isEmptyImage(img.Image image, {double minVariance = 12.0}) async {
+  bool _isEmptyImageSync(img.Image image, {double minVariance = 12.0}) {
     // Smaller version for variance check
     final small = image.width > 320 ? img.copyResize(image, width: 320) : image;
 

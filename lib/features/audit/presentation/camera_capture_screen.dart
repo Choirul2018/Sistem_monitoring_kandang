@@ -133,6 +133,10 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
         _isProcessing = true;
       });
 
+      // Segera tutup kamera setelah foto diambil untuk menghemat resource/lag
+      await cameraService.dispose();
+      _cameraController = null;
+
       // Run AI validation
       final aiService = ref.read(aiServiceProvider);
       final validationResult = await aiService.validatePhoto(rawPhoto);
@@ -237,11 +241,16 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
       _capturedPhoto = null;
       _validationMessage = null;
       _validationPassed = null;
+      _isInitializing = true;
     });
+    _initCamera();
   }
 
   @override
   void dispose() {
+    // Pastikan controller di-set null agar tidak ada referensi tersisa
+    _cameraController = null;
+    // Panggil dispose pada service untuk menutup hardware kamera
     ref.read(cameraServiceProvider).dispose();
     super.dispose();
   }

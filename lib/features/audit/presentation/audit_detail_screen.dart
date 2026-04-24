@@ -192,9 +192,9 @@ class _AuditDetailScreenState extends ConsumerState<AuditDetailScreen> {
                           isCompleted: isCompleted,
                           isLocked: isLocked,
                           isAuditLocked: audit.isLocked,
-                          onTap: () {
-                            context.push('/audit/${widget.auditId}/part/$index');
-                          },
+                          onTap: isLocked 
+                            ? null 
+                            : () => context.push('/audit/${widget.auditId}/part/$index'),
                         );
                       },
                     );
@@ -289,7 +289,7 @@ class _PartStepperItem extends StatelessWidget {
     }
 
     Color? conditionColor;
-    if (part.condition != null) {
+    if (part.partExists && part.condition != null) {
       switch (part.condition) {
         case 'baik':
           conditionColor = AppColors.conditionBaik;

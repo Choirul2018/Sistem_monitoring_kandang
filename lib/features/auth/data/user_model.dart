@@ -8,7 +8,7 @@ class UserModel extends HiveObject {
   final String id;
 
   @HiveField(1)
-  final String email;
+  final String username;
 
   @HiveField(2)
   final String fullName;
@@ -21,7 +21,7 @@ class UserModel extends HiveObject {
 
   UserModel({
     required this.id,
-    required this.email,
+    required this.username,
     required this.fullName,
     required this.role,
     required this.createdAt,
@@ -30,7 +30,7 @@ class UserModel extends HiveObject {
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id'] as String,
-      email: json['email'] as String,
+      username: (json['username'] ?? json['email']) as String, // Compatibility
       fullName: json['full_name'] as String,
       role: json['role'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
@@ -40,7 +40,7 @@ class UserModel extends HiveObject {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'email': email,
+      'username': username,
       'full_name': fullName,
       'role': role,
       'created_at': createdAt.toIso8601String(),
@@ -56,14 +56,14 @@ class UserModel extends HiveObject {
 
   UserModel copyWith({
     String? id,
-    String? email,
+    String? username,
     String? fullName,
     String? role,
     DateTime? createdAt,
   }) {
     return UserModel(
       id: id ?? this.id,
-      email: email ?? this.email,
+      username: username ?? this.username,
       fullName: fullName ?? this.fullName,
       role: role ?? this.role,
       createdAt: createdAt ?? this.createdAt,

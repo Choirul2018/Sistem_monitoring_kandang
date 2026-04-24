@@ -61,7 +61,7 @@ class _AuditPartScreenState extends ConsumerState<AuditPartScreen> {
     if (_currentPart == null) return;
 
     _currentPart!.partExists = _partExists;
-    _currentPart!.condition = _selectedCondition;
+    _currentPart!.condition = _partExists ? _selectedCondition : null;
     _currentPart!.notes = _notesController.text.trim().isEmpty
         ? null
         : _notesController.text.trim();
@@ -103,7 +103,7 @@ class _AuditPartScreenState extends ConsumerState<AuditPartScreen> {
 
     _currentPart!.completed = true;
     _currentPart!.partExists = _partExists;
-    _currentPart!.condition = _selectedCondition;
+    _currentPart!.condition = _partExists ? _selectedCondition : null;
     _currentPart!.notes = _notesController.text.trim().isEmpty
         ? null
         : _notesController.text.trim();

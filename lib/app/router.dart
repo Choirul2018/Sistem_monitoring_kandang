@@ -11,7 +11,6 @@ import '../features/audit/presentation/signature_screen.dart';
 import '../features/audit/presentation/livestock_sampling_screen.dart';
 import '../features/location/presentation/location_list_screen.dart';
 import '../features/location/presentation/location_map_screen.dart';
-import '../features/dashboard/presentation/dashboard_screen.dart';
 import '../features/report/presentation/report_screen.dart';
 import '../features/report/presentation/report_preview_screen.dart';
 
@@ -26,8 +25,6 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (!isAuth && !isLoginRoute) return '/login';
       if (isAuth && isLoginRoute) {
-        final user = authState.valueOrNull;
-        if (user != null && user.canReview) return '/dashboard';
         return '/home';
       }
       return null;
@@ -56,8 +53,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
-        path: '/dashboard',
-        builder: (context, state) => const DashboardScreen(),
+        path: '/home',
+        builder: (context, state) => const AuditListScreen(),
       ),
       GoRoute(
         path: '/reports',

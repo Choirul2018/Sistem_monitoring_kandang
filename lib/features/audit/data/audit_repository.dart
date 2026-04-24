@@ -1,14 +1,11 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'audit_model.dart';
 import 'audit_part_model.dart';
 import 'photo_model.dart';
 import 'livestock_sample_model.dart';
-import '../../../core/constants/supabase_constants.dart';
 import '../../../local_db/hive_service.dart';
 
 class AuditRepository {
-  final SupabaseClient _client = Supabase.instance.client;
   static const _uuid = Uuid();
 
   // ═══════════════════════════════════════════
@@ -39,7 +36,8 @@ class AuditRepository {
       parts: parts,
     );
 
-    // Save locally first (offline-first)
+    // Save locally (Offline-First)
+    // Data akan dikirim ke Laravel via SyncService
     await HiveService.audits.put(auditId, audit);
 
     // Create audit parts
@@ -56,182 +54,54 @@ class AuditRepository {
       await HiveService.auditParts.put(partId, part);
     }
 
-    // Try to sync to server
-    try {
-      await _client.from(SupabaseConstants.auditsTable).insert(audit.toJson());
-      audit.synced = true;
-      await HiveService.audits.put(auditId, audit);
-    } catch (_) {
-      // Will sync later via background sync
-      _addToSyncQueue('audit', auditId, 'create');
-    }
-
     return audit;
   }
 
   // ═══════════════════════════════════════════
-  //  GET AUDITS
+  //  GET DATA (Local Only)
   // ═══════════════════════════════════════════
 
   Future<List<AuditModel>> getAuditsForUser(String userId) async {
-    // Try server first
-    try {
-      final response = await _client
-          .from(SupabaseConstants.auditsTable)
-          .select()
-          .eq('auditor_id', userId)
-          .order('updated_at', ascending: false);
-
-      final audits = (response as List)
-          .map((json) => AuditModel.fromJson(json))
-          .toList();
-
-      // Cache locally
-      for (final audit in audits) {
-        await HiveService.audits.put(audit.id, audit);
-      }
-
-      return audits;
-    } catch (_) {
-      // Fallback to local
-      return HiveService.audits.values
-          .where((a) => a.auditorId == userId)
-          .toList()
-        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    }
+    return HiveService.audits.values
+        .where((a) => a.auditorId == userId)
+        .toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
   }
 
   Future<List<AuditModel>> getAllAudits() async {
-    try {
-      final response = await _client
-          .from(SupabaseConstants.auditsTable)
-          .select()
-          .order('updated_at', ascending: false);
-
-      final audits = (response as List)
-          .map((json) => AuditModel.fromJson(json))
-          .toList();
-
-      for (final audit in audits) {
-        await HiveService.audits.put(audit.id, audit);
-      }
-
-      return audits;
-    } catch (_) {
-      return HiveService.audits.values.toList()
-        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    }
+    return HiveService.audits.values.toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
   }
 
   Future<AuditModel?> getAudit(String auditId) async {
-    // Check local first
-    final local = HiveService.audits.get(auditId);
-    if (local != null) return local;
-
-    try {
-      final response = await _client
-          .from(SupabaseConstants.auditsTable)
-          .select()
-          .eq('id', auditId)
-          .single();
-
-      final audit = AuditModel.fromJson(response);
-      await HiveService.audits.put(auditId, audit);
-      return audit;
-    } catch (_) {
-      return null;
-    }
+    return HiveService.audits.get(auditId);
   }
 
-  // ═══════════════════════════════════════════
-  //  GET AUDIT PARTS
-  // ═══════════════════════════════════════════
-
   Future<List<AuditPartModel>> getAuditParts(String auditId) async {
-    // Check local first
-    final localParts = HiveService.auditParts.values
+    return HiveService.auditParts.values
         .where((p) => p.auditId == auditId)
         .toList()
       ..sort((a, b) => a.partIndex.compareTo(b.partIndex));
-
-    if (localParts.isNotEmpty) return localParts;
-
-    try {
-      final response = await _client
-          .from(SupabaseConstants.auditPartsTable)
-          .select()
-          .eq('audit_id', auditId)
-          .order('part_index');
-
-      final parts = (response as List)
-          .map((json) => AuditPartModel.fromJson(json))
-          .toList();
-
-      for (final part in parts) {
-        await HiveService.auditParts.put(part.id, part);
-      }
-
-      return parts;
-    } catch (_) {
-      return localParts;
-    }
   }
 
   // ═══════════════════════════════════════════
-  //  UPDATE AUDIT PART
+  //  UPDATE DATA
   // ═══════════════════════════════════════════
 
   Future<void> updateAuditPart(AuditPartModel part) async {
     part.synced = false;
     await HiveService.auditParts.put(part.id, part);
-
-    try {
-      await _client
-          .from(SupabaseConstants.auditPartsTable)
-          .upsert(part.toJson());
-      part.synced = true;
-      await HiveService.auditParts.put(part.id, part);
-    } catch (_) {
-      _addToSyncQueue('audit_part', part.id, 'update');
-    }
   }
-
-  // ═══════════════════════════════════════════
-  //  UPDATE AUDIT
-  // ═══════════════════════════════════════════
 
   Future<void> updateAudit(AuditModel audit) async {
     audit.updatedAt = DateTime.now();
     audit.synced = false;
     await HiveService.audits.put(audit.id, audit);
-
-    try {
-      await _client
-          .from(SupabaseConstants.auditsTable)
-          .upsert(audit.toJson());
-      audit.synced = true;
-      await HiveService.audits.put(audit.id, audit);
-    } catch (_) {
-      _addToSyncQueue('audit', audit.id, 'update');
-    }
   }
 
-  // ═══════════════════════════════════════════
-  //  PHOTOS
-  // ═══════════════════════════════════════════
-
   Future<void> savePhoto(PhotoModel photo) async {
+    photo.synced = false;
     await HiveService.photos.put(photo.id, photo);
-
-    try {
-      await _client
-          .from(SupabaseConstants.auditPhotosTable)
-          .upsert(photo.toJson());
-      photo.synced = true;
-      await HiveService.photos.put(photo.id, photo);
-    } catch (_) {
-      _addToSyncQueue('photo', photo.id, 'create');
-    }
   }
 
   Future<List<PhotoModel>> getPhotosForPart(String auditPartId) async {
@@ -241,89 +111,34 @@ class AuditRepository {
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
   }
 
-  // ═══════════════════════════════════════════
-  //  LIVESTOCK SAMPLES
-  // ═══════════════════════════════════════════
-
   Future<void> saveLivestockSample(LivestockSampleModel sample) async {
     sample.synced = false;
     await HiveService.livestockSamples.put(sample.id, sample);
-
-    try {
-      await _client
-          .from(SupabaseConstants.auditLivestockSamplesTable)
-          .upsert(sample.toJson());
-      sample.synced = true;
-      await HiveService.livestockSamples.put(sample.id, sample);
-    } catch (_) {
-      _addToSyncQueue('livestock_sample', sample.id, 'create');
-    }
   }
 
   Future<List<LivestockSampleModel>> getLivestockSamplesForAudit(String auditId) async {
-    // Local first
-    final local = HiveService.livestockSamples.values
+    return HiveService.livestockSamples.values
         .where((s) => s.auditId == auditId)
         .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-    if (local.isNotEmpty) return local;
-
-    try {
-      final response = await _client
-          .from(SupabaseConstants.auditLivestockSamplesTable)
-          .select()
-          .eq('audit_id', auditId);
-
-      final samples = (response as List)
-          .map((json) => LivestockSampleModel.fromJson(json))
-          .toList();
-
-      for (final sample in samples) {
-        await HiveService.livestockSamples.put(sample.id, sample);
-      }
-
-      return samples;
-    } catch (_) {
-      return local;
-    }
   }
 
   // ═══════════════════════════════════════════
-  //  SUBMIT & REVIEW
+  //  SUBMIT AUDIT
   // ═══════════════════════════════════════════
 
-  Future<void> submitForReview(String auditId, String signatureData) async {
+  Future<void> submitAudit(String auditId, String signatureData) async {
     final audit = await getAudit(auditId);
     if (audit == null) throw Exception('Audit tidak ditemukan');
 
-    audit.status = 'pending_review';
+    audit.status = 'approved'; 
     audit.signatureData = signatureData;
-    await updateAudit(audit);
-  }
-
-  Future<void> approveAudit(String auditId, String reviewerId, String? notes) async {
-    final audit = await getAudit(auditId);
-    if (audit == null) throw Exception('Audit tidak ditemukan');
-
-    audit.status = 'approved';
-    audit.reviewedBy = reviewerId;
-    audit.reviewNotes = notes;
-    await updateAudit(audit);
-  }
-
-  Future<void> rejectAudit(String auditId, String reviewerId, String notes) async {
-    final audit = await getAudit(auditId);
-    if (audit == null) throw Exception('Audit tidak ditemukan');
-
-    audit.status = 'rejected';
-    audit.reviewedBy = reviewerId;
-    audit.reviewNotes = notes;
+    audit.synced = false; 
     await updateAudit(audit);
   }
 
   // ═══════════════════════════════════════════
-  //  DRAFT MANAGEMENT
+  //  DRAFT & DELETE
   // ═══════════════════════════════════════════
 
   Future<AuditModel?> getIncompleteDraft(String userId) async {
@@ -337,83 +152,22 @@ class AuditRepository {
   }
 
   Future<void> deleteAudit(String auditId) async {
-    // 1. Get all parts for this audit
-    final parts = HiveService.auditParts.values
-        .where((p) => p.auditId == auditId)
-        .toList();
+    final parts = HiveService.auditParts.values.where((p) => p.auditId == auditId).toList();
     final partIds = parts.map((p) => p.id).toList();
 
-    // 2. Delete photos for these parts from Hive
     final photoKeys = HiveService.photos.keys.where((key) {
       final photo = HiveService.photos.get(key);
       return photo != null && partIds.contains(photo.auditPartId);
     }).toList();
-    for (final key in photoKeys) {
-      await HiveService.photos.delete(key);
-    }
+    for (final key in photoKeys) await HiveService.photos.delete(key);
 
-    // 3. Delete livestock samples for this audit from Hive
     final sampleKeys = HiveService.livestockSamples.keys.where((key) {
       final sample = HiveService.livestockSamples.get(key);
       return sample != null && sample.auditId == auditId;
     }).toList();
-    for (final key in sampleKeys) {
-      await HiveService.livestockSamples.delete(key);
-    }
+    for (final key in sampleKeys) await HiveService.livestockSamples.delete(key);
 
-    // 4. Delete audit parts from Hive
-    for (final partId in partIds) {
-      await HiveService.auditParts.delete(partId);
-    }
-
-    // 5. Delete audit record from Hive
+    for (final partId in partIds) await HiveService.auditParts.delete(partId);
     await HiveService.audits.delete(auditId);
-
-    // 6. Clean up sync queue for this audit and its related items
-    final allDeletedIds = [
-      auditId,
-      ...partIds,
-      ...photoKeys.cast<String>(),
-      ...sampleKeys.cast<String>()
-    ];
-
-    final syncKeysToRemove = HiveService.syncQueue.keys.where((key) {
-      final item = HiveService.syncQueue.get(key);
-      return item != null && allDeletedIds.contains(item['id']);
-    }).toList();
-
-    for (final key in syncKeysToRemove) {
-      await HiveService.syncQueue.delete(key);
-    }
-
-    // 7. Try to delete from server
-    try {
-      await _client.from(SupabaseConstants.auditsTable).delete().eq('id', auditId);
-    } catch (_) {
-      // If offline, add delete action to sync queue
-      _addToSyncQueue('audit', auditId, 'delete');
-    }
-  }
-
-  // ═══════════════════════════════════════════
-  //  SYNC QUEUE
-  // ═══════════════════════════════════════════
-
-  void _addToSyncQueue(String type, String id, String action) {
-    final key = '${type}_${id}_$action';
-    HiveService.syncQueue.put(key, {
-      'type': type,
-      'id': id,
-      'action': action,
-      'timestamp': DateTime.now().toIso8601String(),
-    });
-  }
-
-  Future<List<Map>> getPendingSyncItems() async {
-    return HiveService.syncQueue.values.toList();
-  }
-
-  Future<void> removeSyncItem(String key) async {
-    await HiveService.syncQueue.delete(key);
   }
 }
