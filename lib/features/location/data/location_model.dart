@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:hive/hive.dart';
 
 // Adapter in location_model.g.dart, registered by HiveService
@@ -41,18 +42,48 @@ class LocationModel extends HiveObject {
 
   factory LocationModel.fromJson(Map<String, dynamic> json) {
     return LocationModel(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      address: json['address'] as String?,
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
-      geofenceRadiusM: json['geofence_radius_m'] as int? ?? 500,
-      parts: (json['parts'] as List<dynamic>?)?.cast<String>() ??
-          ['Gerbang', 'Jalan Masuk', 'Area Kantor/Pos', 'Gudang',
-           'Tempat Pakan', 'Tempat Minum', 'Kandang 1', 'Kandang 2'],
-      createdAt: DateTime.parse(json['created_at'] as String),
+      id: json['id'].toString(), // Pastikan ID jadi String apapun bentuknya
+      name: json['name']?.toString() ?? 'Lokasi Tanpa Nama',
+      address: json['address']?.toString(),
+      latitude: (json['latitude'] is num) ? (json['latitude'] as num).toDouble() : 0.0,
+      longitude: (json['longitude'] is num) ? (json['longitude'] as num).toDouble() : 0.0,
+      geofenceRadiusM: int.tryParse(json['geofence_radius_m']?.toString() ?? '500') ?? 500,
+      parts: _parseParts(json['parts']),
+      createdAt: json['created_at'] != null 
+          ? DateTime.parse(json['created_at'].toString()) 
+          : DateTime.now(),
     );
   }
+
+  static List<String> _parseParts(dynamic partsJson) {
+    if (partsJson == null) return _defaultParts;
+    
+    try {
+      if (partsJson is List) {
+        return partsJson.map((e) => e.toString()).toList();
+      }
+      
+      if (partsJson is String) {
+        // Jika dikirim sebagai string JSON "[...]"
+        if (partsJson.startsWith('[') && partsJson.endsWith(']')) {
+          final decoded = json.decode(partsJson);
+          if (decoded is List) {
+            return decoded.map((e) => e.toString()).toList();
+          }
+        }
+        // Jika dikirim dipisah koma "A,B,C"
+        return partsJson.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      }
+    } catch (e) {
+      print('Error parsing parts: $e');
+    }
+    
+    return _defaultParts;
+  }
+
+  static List<String> get _defaultParts => [
+    'Gerbang Utama', 'Area Parkir', 'Gudang Pakan', 'Kandang Utama', 'Pos Jaga'
+  ];
 
   Map<String, dynamic> toJson() {
     return {

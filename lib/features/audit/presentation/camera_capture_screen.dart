@@ -134,8 +134,14 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
       });
 
       // Segera tutup kamera setelah foto diambil untuk menghemat resource/lag
+      // Kita panggil dispose pada service
       await cameraService.dispose();
-      _cameraController = null;
+      
+      if (mounted) {
+        setState(() {
+          _cameraController = null;
+        });
+      }
 
       // Run AI validation
       final aiService = ref.read(aiServiceProvider);
@@ -250,8 +256,11 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
   void dispose() {
     // Pastikan controller di-set null agar tidak ada referensi tersisa
     _cameraController = null;
-    // Panggil dispose pada service untuk menutup hardware kamera
-    ref.read(cameraServiceProvider).dispose();
+    // Panggil dispose pada service untuk menutup hardware kamera secara paksa
+    // Gunakan providerContainer jika di luar build, tapi di sini kita pakai ref.read
+    try {
+      ref.read(cameraServiceProvider).dispose();
+    } catch (_) {}
     super.dispose();
   }
 

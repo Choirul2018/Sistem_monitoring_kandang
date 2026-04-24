@@ -130,8 +130,18 @@ class CameraService {
 
   // ─── Dispose Camera ───
   Future<void> dispose() async {
-    await _controller?.dispose();
-    _controller = null;
+    if (_controller == null) return;
+    
+    final tempController = _controller;
+    _controller = null; // Clear reference first
+    
+    try {
+      if (tempController!.value.isInitialized) {
+        await tempController.dispose();
+      }
+    } catch (e) {
+      print('Error disposing camera: $e');
+    }
   }
 
   CameraController? get controller => _controller;

@@ -1,10 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/auth_repository.dart';
 import '../data/user_model.dart';
+import '../../sync/data/api_service.dart';
 
 // ─── Repository Provider ───
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository();
+  return AuthRepository(ref.read(apiServiceProvider));
 });
 
 // ─── Auth State Provider ───

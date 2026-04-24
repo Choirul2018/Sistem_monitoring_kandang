@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,29 +23,43 @@ class ApiService {
     required List<PhotoModel> photos,
   }) async {
     try {
-      // 1. Siapkan data JSON untuk audit dan bagian-bagiannya
-      final Map<String, dynamic> auditData = audit.toJson();
-      
-      // Tambahkan detail bagian ke dalam payload
-      auditData['parts_detail'] = parts.map((p) => p.toJson()).toList();
+      // 1. Siapkan data parts dengan nested photos info
+      final List<Map<String, dynamic>> partsWithPhotos = [];
 
-      // 2. Siapkan Multipart untuk Foto
-      final formDataMap = <String, dynamic>{
-        'audit': auditData,
-      };
+      final Map<String, dynamic> formDataMap = {};
 
-      // Tambahkan file foto ke FormData
-      for (int i = 0; i < photos.length; i++) {
-        final photo = photos[i];
-        final file = File(photo.localPath);
+      for (var part in parts) {
+        final partJson = part.toJson();
+        final partPhotos = photos.where((p) => p.auditPartId == part.id).toList();
         
-        if (await file.exists()) {
-          formDataMap['photo_$i'] = await MultipartFile.fromFile(
-            file.path,
-            filename: 'audit_${audit.id}_part_${photo.auditPartId}_$i.jpg',
-          );
+        final List<Map<String, dynamic>> photoInfos = [];
+        
+        for (var i = 0; i < partPhotos.length; i++) {
+          final photo = partPhotos[i];
+          final uploadKey = 'photo_${photo.id}';
+          
+          photoInfos.add({
+            ...photo.toJson(),
+            'upload_key': uploadKey,
+          });
+
+          final file = File(photo.localPath);
+          if (await file.exists()) {
+            formDataMap[uploadKey] = await MultipartFile.fromFile(
+              file.path,
+              filename: '${photo.id}.jpg',
+            );
+          }
         }
+
+        partJson['photos'] = photoInfos;
+        partsWithPhotos.add(partJson);
       }
+
+      // 2. Siapkan Payload Utama
+      // Laravel AuditSyncController mengharapkan 'audit' dan 'parts' sebagai JSON string
+      formDataMap['audit'] = jsonEncode(audit.toJson());
+      formDataMap['parts'] = jsonEncode(partsWithPhotos);
 
       final formData = FormData.fromMap(formDataMap);
 
@@ -59,29 +74,46 @@ class ApiService {
   }
 
   /// Login ke Laravel
-  Future<String?> login(String username, String password) async {
+  Future<Map<String, dynamic>> login(String username, String password) async {
     try {
       final response = await _client.post('/login', data: {
         'username': username,
         'password': password,
+        'device_name': 'flutter_mobile',
       });
 
       if (response.statusCode == 200) {
-        return response.data['token']; // Asumsi Laravel mengembalikan field 'token'
+        return response.data; // Mengembalikan { "token": "...", "user": {...} }
       }
-      return null;
+      throw Exception('Gagal login: Status ${response.statusCode}');
     } catch (e) {
-      return null;
+      if (e is DioException && e.response?.statusCode == 401) {
+        throw Exception('Username atau password salah.');
+      }
+      rethrow;
     }
+  }
+
+  /// Logout dari Laravel
+  Future<void> logout() async {
+    try {
+      await _client.post('/logout');
+    } catch (e) {
+      print('Logout error: $e');
+    }
+  }
+
   /// Ambil daftar lokasi dari Laravel
   Future<List<dynamic>> getLocations() async {
     try {
       final response = await _client.get('/locations');
       if (response.statusCode == 200) {
-        return response.data as List<dynamic>;
+        // Laravel mengembalikan { "data": [...] }
+        return response.data['data'] as List<dynamic>;
       }
       return [];
     } catch (e) {
+      print('Get locations error: $e');
       return [];
     }
   }

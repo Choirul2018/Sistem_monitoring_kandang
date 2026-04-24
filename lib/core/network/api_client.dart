@@ -10,8 +10,11 @@ class ApiClient {
   late Dio dio;
   final storage = const FlutterSecureStorage();
 
-  // Gantilah dengan URL backend Laravel Anda
-  static const String baseUrl = 'http://your-laravel-api.com/api';
+  // Alamat backend Laravel. 
+  // ---------------------------------------------------------
+  static const String baseUrl = 'http://localhost:8000/api'; 
+  // static const String baseUrl = 'http://10.0.2.2:8000/api'; // Emulator
+  // static const String baseUrl = 'http://192.168.0.104:8000/api'; // HP Fisik
 
   ApiClient() {
     dio = Dio(
@@ -36,9 +39,10 @@ class ApiClient {
           }
           return handler.next(options);
         },
-        onError: (DioException e, handler) {
+        onError: (DioException e, handler) async {
           if (e.response?.statusCode == 401) {
-            // Logika logout jika token expired
+            // Jika tidak diizinkan (401), hapus token agar user bisa login ulang
+            await storage.delete(key: 'auth_token');
           }
           return handler.next(e);
         },

@@ -19,6 +19,10 @@ class AuditRepository {
     required String auditorName,
     required List<String> parts,
   }) async {
+    // PENGAMAN: Jika daftar bagian kosong, gunakan daftar default
+    if (parts.isEmpty) {
+      parts = ['Gerbang', 'Area Parkir', 'Gudang Pakan', 'Kandang Utama', 'Pos Jaga'];
+    }
     final now = DateTime.now();
     final auditId = _uuid.v4();
 

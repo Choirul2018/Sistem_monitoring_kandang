@@ -15,46 +15,22 @@ class LocationRepository {
           .map((json) => LocationModel.fromJson(json))
           .toList();
 
-      // Cache locally
+      // Bersihkan cache lama dan ganti dengan data baru dari Laravel
+      await HiveService.locations.clear();
       for (final loc in locations) {
         await HiveService.locations.put(loc.id, loc);
       }
 
       return locations;
-    } catch (_) {
-      // Fallback to local
+    } catch (e) {
+      print('LocationRepository Error: $e');
+      
+      // Jika internet/API gagal, baru ambil dari cache lokal
       final locals = HiveService.locations.values.toList();
-      if (locals.isEmpty) {
-        // Data Default (Offline First)
-        final List<LocationModel> dummies = [
-          LocationModel(
-            id: 'loc-1',
-            name: 'Kandang Ayam Boiler A',
-            address: 'PPMK 2, Zona 1',
-            latitude: -7.7872319,
-            longitude: 112.1918656,
-            geofenceRadiusM: 200,
-            parts: ['Gerbang', 'Jalan Masuk', 'Gudang', 'Kandang 1', 'Kandang 2'],
-            createdAt: DateTime.now(),
-          ),
-          LocationModel(
-            id: 'loc-2',
-            name: 'Kandang Ayam Boiler B',
-            address: 'PPMK, Zona 2',
-            latitude: -7.7872319,
-            longitude: 112.1918656,
-            geofenceRadiusM: 200,
-            parts: ['Gerbang', 'Jalan Masuk', 'Gudang', 'Tempat Pakan', 'Tempat Minum'],
-            createdAt: DateTime.now(),
-          ),
-        ];
-        
-        for (final loc in dummies) {
-          await HiveService.locations.put(loc.id, loc);
-        }
-        return dummies;
-      }
-      return locals;
+      if (locals.isNotEmpty) return locals;
+      
+      // Jika local juga kosong, lempar error agar user tahu
+      rethrow;
     }
   }
 
