@@ -189,14 +189,6 @@ class AuditSummaryScreen extends ConsumerWidget {
           );
         },
       ),
-                    const SizedBox(height: 100),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
       bottomNavigationBar: samplesAsync.when(
         data: (samples) {
           final hasSamples = samples.isNotEmpty;

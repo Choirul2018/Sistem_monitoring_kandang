@@ -102,6 +102,9 @@ class PdfExporter {
             ],
           );
         },
+      ),
+    );
+
     // ─── Livestock Samples Table ───
     if (samples.isNotEmpty) {
       pdf.addPage(
