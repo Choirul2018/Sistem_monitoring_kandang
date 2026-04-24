@@ -17,7 +17,7 @@ import 'package:sistem_monitoring_kandang/core/constants/app_constants.dart';
 
 // ─── Repository Providers ───
 final auditRepositoryProvider = Provider((ref) => AuditRepository());
-final locationRepositoryProvider = Provider((ref) => LocationRepository());
+final locationRepositoryProvider = Provider((ref) => LocationRepository(ref.read(apiServiceProvider)));
 final cameraServiceProvider = Provider((ref) => CameraService());
 final locationServiceProvider = Provider((ref) => LocationService());
 final aiServiceProvider = Provider((ref) => AiService());

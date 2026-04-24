@@ -1,19 +1,17 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'location_model.dart';
-import '../../../core/constants/supabase_constants.dart';
 import '../../../local_db/hive_service.dart';
+import '../../sync/data/api_service.dart';
 
 class LocationRepository {
-  final SupabaseClient _client = Supabase.instance.client;
+  final ApiService _apiService;
+
+  LocationRepository(this._apiService);
 
   Future<List<LocationModel>> getAllLocations() async {
     try {
-      final response = await _client
-          .from(SupabaseConstants.locationsTable)
-          .select()
-          .order('name');
-
-      final locations = (response as List)
+      final response = await _apiService.getLocations();
+      
+      final locations = response
           .map((json) => LocationModel.fromJson(json))
           .toList();
 
@@ -27,7 +25,7 @@ class LocationRepository {
       // Fallback to local
       final locals = HiveService.locations.values.toList();
       if (locals.isEmpty) {
-        // Dummy Data Mode
+        // Data Default (Offline First)
         final List<LocationModel> dummies = [
           LocationModel(
             id: 'loc-1',
@@ -61,48 +59,27 @@ class LocationRepository {
   }
 
   Future<LocationModel?> getLocation(String locationId) async {
-    // Check local first
+    // Check local first (Always check local to be fast)
     final local = HiveService.locations.get(locationId);
     if (local != null) return local;
 
+    // If not in local, try fetching all to refresh cache
+    final all = await getAllLocations();
     try {
-      final response = await _client
-          .from(SupabaseConstants.locationsTable)
-          .select()
-          .eq('id', locationId)
-          .single();
-
-      final location = LocationModel.fromJson(response);
-      await HiveService.locations.put(locationId, location);
-      return location;
+      return all.firstWhere((l) => l.id == locationId);
     } catch (_) {
       return null;
     }
   }
 
   Future<LocationModel> createLocation(LocationModel location) async {
+    // Lokasi baru biasanya dibuat di Laravel Dashboard, 
+    // tapi ini tetap disimpan di local jika perlu.
     await HiveService.locations.put(location.id, location);
-
-    try {
-      await _client
-          .from(SupabaseConstants.locationsTable)
-          .insert(location.toJson());
-    } catch (_) {
-      // Will sync later
-    }
-
     return location;
   }
 
   Future<void> updateLocation(LocationModel location) async {
     await HiveService.locations.put(location.id, location);
-
-    try {
-      await _client
-          .from(SupabaseConstants.locationsTable)
-          .upsert(location.toJson());
-    } catch (_) {
-      // Will sync later
-    }
   }
 }

@@ -73,5 +73,16 @@ class ApiService {
     } catch (e) {
       return null;
     }
+  /// Ambil daftar lokasi dari Laravel
+  Future<List<dynamic>> getLocations() async {
+    try {
+      final response = await _client.get('/locations');
+      if (response.statusCode == 200) {
+        return response.data as List<dynamic>;
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
   }
 }
