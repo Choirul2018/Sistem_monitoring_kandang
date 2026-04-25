@@ -15,44 +15,75 @@ class SignatureScreen extends ConsumerStatefulWidget {
   ConsumerState<SignatureScreen> createState() => _SignatureScreenState();
 }
 
+class SignatureController extends ChangeNotifier {
+  List<List<Offset>> strokes = [];
+  List<Offset> currentStroke = [];
+
+  void startStroke(Offset position) {
+    currentStroke = [position];
+    notifyListeners();
+  }
+
+  void updateStroke(Offset position) {
+    currentStroke.add(position);
+    notifyListeners();
+  }
+
+  void endStroke() {
+    if (currentStroke.isNotEmpty) {
+      strokes.add(List.from(currentStroke));
+      currentStroke = [];
+      notifyListeners();
+    }
+  }
+
+  void clear() {
+    strokes.clear();
+    currentStroke = [];
+    notifyListeners();
+  }
+
+  bool get isEmpty => strokes.isEmpty && currentStroke.isEmpty;
+}
+
 class _SignatureScreenState extends ConsumerState<SignatureScreen> {
-  // Daftar garis (setiap garis adalah list of Offset)
-  final List<List<Offset>> _strokes = [];
-  List<Offset> _currentStroke = [];
+  final SignatureController _signatureController = SignatureController();
+  
   bool _isSubmitting = false;
   bool _isEmpty = true;
 
   // Key untuk mengambil gambar dari widget
   final GlobalKey _signaturePadKey = GlobalKey();
 
+  @override
+  void dispose() {
+    _signatureController.dispose();
+    super.dispose();
+  }
+
   void _onPanStart(DragStartDetails details) {
-    setState(() {
-      _currentStroke = [details.localPosition];
-      _isEmpty = false;
-    });
+    if (_isEmpty) {
+      setState(() {
+        _isEmpty = false;
+      });
+    }
+    _signatureController.startStroke(details.localPosition);
   }
 
   void _onPanUpdate(DragUpdateDetails details) {
-    setState(() {
-      _currentStroke.add(details.localPosition);
-    });
+    // Memperbarui hanya controller (berjalan super cepat tanpa rebuild halaman)
+    _signatureController.updateStroke(details.localPosition);
   }
 
   void _onPanEnd(DragEndDetails details) {
-    setState(() {
-      if (_currentStroke.isNotEmpty) {
-        _strokes.add(List.from(_currentStroke));
-        _currentStroke = [];
-      }
-    });
+    _signatureController.endStroke();
   }
 
   void _clearSignature() {
     setState(() {
-      _strokes.clear();
-      _currentStroke = [];
       _isEmpty = true;
     });
+    _signatureController.clear();
   }
 
   Future<String?> _captureSignatureAsBase64() async {
@@ -71,7 +102,7 @@ class _SignatureScreenState extends ConsumerState<SignatureScreen> {
   }
 
   Future<void> _submitAudit() async {
-    if (_isEmpty || _strokes.isEmpty) {
+    if (_isEmpty || _signatureController.strokes.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -248,8 +279,7 @@ class _SignatureScreenState extends ConsumerState<SignatureScreen> {
                       child: CustomPaint(
                         // foregroundPainter: digambar DI ATAS child (bukan di bawah)
                         foregroundPainter: _SignaturePainter(
-                          strokes: _strokes,
-                          currentStroke: _currentStroke,
+                          controller: _signatureController,
                         ),
                         child: Container(
                           color: Colors.white,
@@ -335,16 +365,16 @@ class _SignatureScreenState extends ConsumerState<SignatureScreen> {
   }
 }
 
-/// CustomPainter yang menggambar stroke tanda tangan
+/// CustomPainter yang menggambar stroke tanda tangan (Otomatis redraw saat perubahan drag update tanpa rebuild seluruh halaman)
 class _SignaturePainter extends CustomPainter {
-  final List<List<Offset>> strokes;
-  final List<Offset> currentStroke;
+  final SignatureController controller;
 
-  _SignaturePainter({required this.strokes, required this.currentStroke});
+  // Pass controller ke super(repaint) -> Flutter otomatis mengeksekusi paint()
+  // ketika notifyListeners() dipanggil di dalam controller.
+  _SignaturePainter({required this.controller}) : super(repaint: controller);
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Tidak perlu gambar background — Container child sudah putih
     final paint = Paint()
       ..color = Colors.black87
       ..strokeWidth = 3.0
@@ -353,13 +383,13 @@ class _SignaturePainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     // Gambar semua stroke yang sudah selesai
-    for (final stroke in strokes) {
+    for (final stroke in controller.strokes) {
       _drawStroke(canvas, stroke, paint);
     }
 
     // Gambar stroke yang sedang digambar
-    if (currentStroke.isNotEmpty) {
-      _drawStroke(canvas, currentStroke, paint);
+    if (controller.currentStroke.isNotEmpty) {
+      _drawStroke(canvas, controller.currentStroke, paint);
     }
   }
 
@@ -383,7 +413,7 @@ class _SignaturePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_SignaturePainter oldDelegate) {
-    return oldDelegate.strokes != strokes ||
-        oldDelegate.currentStroke != currentStroke;
+    // False karena state diurus secara reaktif via super(repaint: ...)
+    return false;
   }
 }

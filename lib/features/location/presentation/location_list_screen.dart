@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../audit/presentation/providers/audit_provider.dart';
 import '../../auth/presentation/auth_provider.dart';
 import '../data/location_model.dart';
@@ -77,7 +78,16 @@ class LocationListScreen extends ConsumerWidget {
               return _LocationCard(
                 location: location,
                 onTap: () => _startAudit(context, ref, location),
-                onMapTap: () => context.push('/location-map/${location.id}'),
+                onMapTap: () async {
+                  final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}');
+                  if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Gagal membuka peta aplikasi')),
+                      );
+                    }
+                  }
+                },
               );
             },
           );

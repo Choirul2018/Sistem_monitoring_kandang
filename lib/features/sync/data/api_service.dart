@@ -30,6 +30,11 @@ class ApiService {
 
       for (var part in parts) {
         final partJson = part.toJson();
+        
+        // Sesuaikan dengan validasi Laravel: status (boolean) dan remarks (string/nullable)
+        partJson['status'] = part.condition == 'baik' || part.condition == 'cukup';
+        partJson['remarks'] = part.notes;
+        
         final partPhotos = photos.where((p) => p.auditPartId == part.id).toList();
         
         final List<Map<String, dynamic>> photoInfos = [];

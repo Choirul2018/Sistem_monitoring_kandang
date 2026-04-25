@@ -54,8 +54,8 @@ class SyncService {
       final unsyncedAudits = HiveService.audits.values.where((a) => !a.synced);
       
       for (final audit in unsyncedAudits) {
-        // Hanya sinkronkan yang sudah selesai (approved) agar tidak setengah-setengah
-        if (audit.status != 'approved') continue;
+        // Hapus syarat 'approved', sehingga semua audit akan sinkron
+        // if (audit.status != 'approved') continue;
 
         try {
           // Cari bagian dan foto terkait audit ini
@@ -102,7 +102,7 @@ class SyncService {
   }
 
   SyncStatus getSyncStatus() {
-    final unsyncedAudits = HiveService.audits.values.where((a) => !a.synced && a.status == 'approved').length;
+    final unsyncedAudits = HiveService.audits.values.where((a) => !a.synced).length;
     final total = unsyncedAudits;
 
     return SyncStatus(

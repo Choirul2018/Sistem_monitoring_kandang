@@ -72,7 +72,7 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
           ),
         ),
         data: (audits) {
-          final unsynced = audits.where((a) => !a.synced && a.status == 'approved').toList();
+          final unsynced = audits.where((a) => !a.synced).toList();
           
           if (unsynced.isEmpty) {
             return Center(
