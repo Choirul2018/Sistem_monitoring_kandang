@@ -122,28 +122,20 @@ class _AuditListScreenState extends ConsumerState<AuditListScreen> {
         title: const Text('Audit Saya'),
         actions: [
           // Sync indicator
-          if (!syncStatus.isFullySynced)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: IconButton(
-                icon: Badge(
-                  label: Text('${syncStatus.totalPending}'),
-                  child: Icon(
-                    Icons.cloud_upload_outlined,
-                    color: AppColors.warning,
-                  ),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: IconButton(
+              icon: Badge(
+                isLabelVisible: !syncStatus.isFullySynced,
+                label: Text('${syncStatus.totalPending}'),
+                child: Icon(
+                  Icons.cloud_sync_rounded,
+                  color: syncStatus.isFullySynced ? null : AppColors.warning,
                 ),
-                onPressed: () async {
-                  final syncService = ref.read(syncServiceProvider);
-                  final result = await syncService.syncAll();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(result.message)),
-                    );
-                  }
-                },
               ),
+              onPressed: () => context.push('/sync'),
             ),
+          ),
           IconButton(
             icon: const Icon(Icons.logout_rounded),
             onPressed: () async {
@@ -164,7 +156,7 @@ class _AuditListScreenState extends ConsumerState<AuditListScreen> {
               borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.3),
+                  color: AppColors.primary.withOpacity(0.3),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
@@ -197,7 +189,7 @@ class _AuditListScreenState extends ConsumerState<AuditListScreen> {
                       Text(
                         user?.role.toUpperCase() ?? '',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.8),
+                          color: Colors.white.withOpacity(0.8),
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           letterSpacing: 1.2,
@@ -210,7 +202,7 @@ class _AuditListScreenState extends ConsumerState<AuditListScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
+                      color: Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -383,7 +375,7 @@ class _QuickActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: color.withValues(alpha: 0.1),
+      color: color.withOpacity(0.1),
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -406,7 +398,7 @@ class _QuickActionCard extends StatelessWidget {
                 Text(
                   subtitle!,
                   style: TextStyle(
-                    color: color.withValues(alpha: 0.7),
+                    color: color.withOpacity(0.7),
                     fontSize: 10,
                   ),
                 ),
@@ -541,7 +533,7 @@ class _AuditCard extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.1),
+                        color: statusColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -594,7 +586,7 @@ class _AuditCard extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.1),
+                        color: statusColor.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(

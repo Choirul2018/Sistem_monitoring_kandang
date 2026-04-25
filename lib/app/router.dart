@@ -13,6 +13,7 @@ import '../features/location/presentation/location_list_screen.dart';
 import '../features/location/presentation/location_map_screen.dart';
 import '../features/report/presentation/report_screen.dart';
 import '../features/report/presentation/report_preview_screen.dart';
+import '../features/sync/presentation/sync_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -103,6 +104,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => LivestockSamplingScreen(
           auditId: state.pathParameters['id']!,
         ),
+      ),
+      GoRoute(
+        path: '/sync',
+        builder: (context, state) => const SyncScreen(),
       ),
     ],
   );

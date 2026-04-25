@@ -15,6 +15,24 @@ class AuditDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _AuditDetailScreenState extends ConsumerState<AuditDetailScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Pre-start camera hardware for faster capture
+    _startCameraSession();
+  }
+
+  Future<void> _startCameraSession() async {
+    await ref.read(cameraServiceProvider).startSession();
+  }
+
+  @override
+  void dispose() {
+    // Release camera hardware when leaving audit flow
+    ref.read(cameraServiceProvider).stopSession();
+    super.dispose();
+  }
+
   Future<void> _confirmDelete(AuditModel audit) async {
     final confirmed = await showDialog<bool>(
       context: context,

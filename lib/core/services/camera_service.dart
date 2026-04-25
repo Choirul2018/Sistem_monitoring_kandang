@@ -20,6 +20,10 @@ class CameraService {
     CameraDescription? camera,
     ResolutionPreset resolution = ResolutionPreset.high,
   }) async {
+    if (_controller != null && _controller!.value.isInitialized) {
+      return _controller!;
+    }
+
     final cameras = await getAvailableCameras();
     if (cameras.isEmpty) throw Exception('Tidak ada kamera tersedia.');
 
@@ -36,10 +40,30 @@ class CameraService {
     return _controller!;
   }
 
+  // ─── Persistent Session Management ───
+  bool _isSessionActive = false;
+  bool get isSessionActive => _isSessionActive;
+
+  Future<void> startSession() async {
+    if (_isSessionActive) return;
+    try {
+      await initializeCamera();
+      _isSessionActive = true;
+    } catch (e) {
+      print('Gagal memulai sesi kamera: $e');
+    }
+  }
+
+  Future<void> stopSession() async {
+    _isSessionActive = false;
+    await dispose();
+  }
+
   // ─── Capture Photo ───
   Future<File> capturePhoto() async {
     if (_controller == null || !_controller!.value.isInitialized) {
-      throw Exception('Kamera belum diinisialisasi.');
+      // Jika sesi tidak aktif tapi dipanggil, coba inisialisasi cepat
+      await initializeCamera();
     }
 
     final xFile = await _controller!.takePicture();
