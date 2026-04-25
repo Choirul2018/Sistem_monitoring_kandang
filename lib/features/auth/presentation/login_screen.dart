@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth_provider.dart';
-import 'register_screen.dart';
 import '../../../app/theme/app_colors.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -127,30 +126,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
                       : const Text('Masuk', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ),
-                const SizedBox(height: 24),
-
-                // Register Link
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Belum punya akun? ',
-                      style: TextStyle(color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const RegisterScreen()),
-                        );
-                      },
-                      child: const Text(
-                        'Daftar Sekarang',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),

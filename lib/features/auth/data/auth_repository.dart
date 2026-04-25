@@ -1,16 +1,4 @@
 import 'package:hive/hive.dart';
-<<<<<<< Updated upstream
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../../sync/data/api_service.dart';
-import 'user_model.dart';
-
-class AuthRepository {
-  final ApiService _apiService;
-  
-  AuthRepository(this._apiService);
-
-  // ─── Sign In (Real API) ───
-=======
 import '../../../core/network/api_client.dart';
 import 'user_model.dart';
 
@@ -20,41 +8,10 @@ class AuthRepository {
   AuthRepository(this._apiClient);
 
   // ─── Sign In ───
->>>>>>> Stashed changes
   Future<UserModel> signIn({
     required String username,
     required String password,
   }) async {
-<<<<<<< Updated upstream
-    // 1. Panggil API Login
-    final response = await _apiService.login(username, password);
-    
-    // 2. Ambil data user dan token dari response
-    final userData = response['user'];
-    final token = response['token'];
-
-    // 3. Simpan token ke SecureStorage
-    const storage = FlutterSecureStorage();
-    await storage.write(key: 'auth_token', value: token);
-
-    // 4. Map ke UserModel
-    final user = UserModel(
-      id: userData['id'].toString(),
-      username: userData['username'],
-      fullName: userData['name'] ?? userData['username'], // Cocokkan dengan field 'name' di Laravel
-      role: userData['role'] ?? 'auditor',
-      createdAt: DateTime.now(),
-    );
-
-    // 5. Simpan info user ke Hive
-    final box = Hive.box<UserModel>('user');
-    await box.put('current_user', user);
-
-    return user;
-  }
-
-  // ─── Sign Up (Placeholder) ───
-=======
     try {
       final response = await _apiClient.post('/login', data: {
         'username': username,
@@ -88,7 +45,6 @@ class AuthRepository {
   }
 
   // ─── Sign Up ───
->>>>>>> Stashed changes
   Future<UserModel> signUp({
     required String username,
     required String password,
@@ -96,9 +52,6 @@ class AuthRepository {
     String role = 'auditor',
     String? email,
   }) async {
-<<<<<<< Updated upstream
-    throw Exception('Pendaftaran mandiri belum tersedia. Silakan hubungi admin.');
-=======
     try {
       final response = await _apiClient.post('/register', data: {
         'name': fullName,
@@ -129,35 +82,22 @@ class AuthRepository {
     } catch (e) {
       rethrow;
     }
->>>>>>> Stashed changes
   }
 
   // ─── Sign Out ───
   Future<void> signOut() async {
     try {
-<<<<<<< Updated upstream
-      await _apiService.logout();
-    } catch (_) {}
-    
-    const storage = FlutterSecureStorage();
-    await storage.delete(key: 'auth_token');
-    
-=======
       await _apiClient.post('/logout');
     } catch (_) {}
     
     await _apiClient.storage.delete(key: 'auth_token');
->>>>>>> Stashed changes
     final box = Hive.box<UserModel>('user');
     await box.clear();
   }
 
   // ─── Get Current User ───
   Future<UserModel?> getCurrentUser() async {
-    const storage = FlutterSecureStorage();
-    final token = await storage.read(key: 'auth_token');
-    
-    // Jika token tidak ada (misal setelah refresh), maka paksa login ulang
+    final token = await _apiClient.storage.read(key: 'auth_token');
     if (token == null) return null;
 
     final box = Hive.box<UserModel>('user');
@@ -165,9 +105,8 @@ class AuthRepository {
   }
 
   // ─── Check if Logged In ───
-  Future<bool> get isLoggedIn async {
-    const storage = FlutterSecureStorage();
-    final token = await storage.read(key: 'auth_token');
-    return token != null;
+  bool get isLoggedIn {
+    final box = Hive.box<UserModel>('user');
+    return box.containsKey('current_user');
   }
 }
