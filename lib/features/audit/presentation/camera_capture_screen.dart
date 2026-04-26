@@ -63,6 +63,7 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
       final locationService = ref.read(locationServiceProvider);
       final position = await locationService.getCurrentPosition();
 
+      if (!mounted) return;
       setState(() {
         _currentLat = position.latitude;
         _currentLng = position.longitude;
@@ -90,6 +91,7 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
             location.longitude,
           );
 
+          if (!mounted) return;
           setState(() {
             _isInsideGeofence = inside;
             _gpsStatus = inside
@@ -99,6 +101,7 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
         }
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _gpsStatus = 'GPS error: $e';
         _isInsideGeofence = false;
@@ -133,13 +136,16 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
         _isProcessing = true;
       });
 
-      // Jangan tutup kamera di sini agar tetap terbuka terus
+      // Tutup kamera setelah ambil foto untuk hemat baterai/performa
+      await cameraService.dispose();
+      _cameraController = null;
       
       if (mounted) {
         // Run AI validation
         final aiService = ref.read(aiServiceProvider);
         final validationResult = await aiService.validatePhoto(rawPhoto);
 
+        if (!mounted) return;
         setState(() {
           _isProcessing = false;
           _validationPassed = validationResult.isValid;
@@ -149,6 +155,7 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isCapturing = false;
         _isProcessing = false;
@@ -219,16 +226,16 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
       part.photoIds = [...part.photoIds, photoId];
       await ref.read(auditRepositoryProvider).updateAuditPart(part);
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Foto berhasil disimpan ✓'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-        context.pop(true);
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Foto berhasil disimpan ✓'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      context.pop(true);
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isProcessing = false;
         _validationMessage = 'Error menyimpan foto: $e';
@@ -248,6 +255,8 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
 
   @override
   void dispose() {
+    // Pastikan servis kamera benar-benar di-dispose saat keluar halaman
+    ref.read(cameraServiceProvider).dispose();
     _cameraController = null;
     super.dispose();
   }

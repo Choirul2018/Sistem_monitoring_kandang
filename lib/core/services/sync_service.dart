@@ -65,20 +65,26 @@ class SyncService {
           final photos = HiveService.photos.values
               .where((ph) => partIds.contains(ph.auditPartId))
               .toList();
+          
+          final samples = HiveService.livestockSamples.values
+              .where((s) => s.auditId == audit.id)
+              .toList();
 
           final success = await _apiService.sendAuditToLaravel(
             audit: audit,
             parts: parts,
             photos: photos,
+            samples: samples,
           );
 
           if (success) {
             audit.synced = true;
             await HiveService.audits.put(audit.id, audit);
             
-            // Tandai bagian dan foto sebagai tersinkronisasi juga
+            // Tandai bagian, foto, dan sampel sebagai tersinkronisasi juga
             for (var p in parts) { p.synced = true; await HiveService.auditParts.put(p.id, p); }
             for (var ph in photos) { ph.synced = true; await HiveService.photos.put(ph.id, ph); }
+            for (var s in samples) { s.synced = true; await HiveService.livestockSamples.put(s.id, s); }
             
             synced++;
           } else {

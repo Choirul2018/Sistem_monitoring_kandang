@@ -6,6 +6,7 @@ import '../../../core/network/api_client.dart';
 import '../../audit/data/audit_model.dart';
 import '../../audit/data/audit_part_model.dart';
 import '../../audit/data/photo_model.dart';
+import '../../audit/data/livestock_sample_model.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) {
   return ApiService(ref.read(apiClientProvider));
@@ -21,6 +22,7 @@ class ApiService {
     required AuditModel audit,
     required List<AuditPartModel> parts,
     required List<PhotoModel> photos,
+    required List<LivestockSampleModel> samples,
   }) async {
     try {
       // 1. Siapkan data parts dengan nested photos info
@@ -65,6 +67,7 @@ class ApiService {
       // Laravel AuditSyncController mengharapkan 'audit' dan 'parts' sebagai JSON string
       formDataMap['audit'] = jsonEncode(audit.toJson());
       formDataMap['parts'] = jsonEncode(partsWithPhotos);
+      formDataMap['samples'] = jsonEncode(samples.map((s) => s.toJson()).toList());
 
       final formData = FormData.fromMap(formDataMap);
 

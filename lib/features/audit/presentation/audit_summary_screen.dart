@@ -128,12 +128,16 @@ class _AuditSummaryScreenState extends ConsumerState<AuditSummaryScreen> {
                             children: [
                               const Icon(Icons.summarize_rounded, color: Colors.white, size: 24),
                               const SizedBox(width: 8),
-                              Text(
-                                audit.locationName ?? 'Lokasi',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w700,
+                              Expanded(
+                                child: Text(
+                                  audit.locationName ?? 'Lokasi',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
@@ -150,9 +154,13 @@ class _AuditSummaryScreenState extends ConsumerState<AuditSummaryScreen> {
                           const SizedBox(height: 16),
                           Row(
                             children: [
-                              _StatChip(label: 'Total Foto', value: '$totalPhotos', color: Colors.white),
+                              Expanded(
+                                child: _StatChip(label: 'Total Foto', value: '$totalPhotos', color: Colors.white),
+                              ),
                               const SizedBox(width: 8),
-                              _StatChip(label: 'Bagian', value: '${parts.length}', color: Colors.white),
+                              Expanded(
+                                child: _StatChip(label: 'Bagian', value: '${parts.length}', color: Colors.white),
+                              ),
                             ],
                           ),
                         ],
@@ -189,8 +197,9 @@ class _AuditSummaryScreenState extends ConsumerState<AuditSummaryScreen> {
                     // ─── Livestock Samples Section ───
                     Row(
                       children: [
-                        Text('Sampel Hewan', style: Theme.of(context).textTheme.titleMedium),
-                        const Spacer(),
+                        Expanded(
+                          child: Text('Sampel Hewan', style: Theme.of(context).textTheme.titleMedium),
+                        ),
                         TextButton.icon(
                           onPressed: () => context.push('/audit/$auditId/livestock'),
                           icon: const Icon(Icons.add_rounded, size: 18),
