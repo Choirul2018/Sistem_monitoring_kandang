@@ -268,7 +268,7 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
     final isEdit = widget.existing != null;
 
     return Scaffold(
-      resizeToAvoidBottomInset: true, // Biarkan sistem yang mengurus geser layar
+      resizeToAvoidBottomInset: false, // Frame tetap untuk mencegah lag
       appBar: AppBar(
         title: Text(isEdit ? 'Edit Sampel Ternak' : 'Tambah Sampel Ternak'),
         leading: IconButton(
@@ -293,7 +293,7 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+        padding: EdgeInsets.fromLTRB(20, 20, 20, 40 + MediaQuery.of(context).viewInsets.bottom),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

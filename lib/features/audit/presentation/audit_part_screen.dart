@@ -169,6 +169,7 @@ class _AuditPartScreenState extends ConsumerState<AuditPartScreen> {
         final isLocked = auditAsync.valueOrNull?.isLocked ?? false;
 
         return Scaffold(
+          resizeToAvoidBottomInset: false,
           appBar: AppBar(
             title: Text(part.partName),
             actions: [
@@ -196,7 +197,12 @@ class _AuditPartScreenState extends ConsumerState<AuditPartScreen> {
             ],
           ),
           body: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 16,
+              bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
