@@ -31,11 +31,28 @@ class _AuditPartScreenState extends ConsumerState<AuditPartScreen> {
   Timer? _debounceTimer;
   AuditPartModel? _currentPart;
   final _notesFocus = FocusNode();
+  final _notesKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
     _loadPartData();
+    _notesFocus.addListener(_scrollToNotes);
+  }
+
+  void _scrollToNotes() {
+    if (_notesFocus.hasFocus && _notesKey.currentContext != null) {
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (mounted && _notesKey.currentContext != null) {
+          Scrollable.ensureVisible(
+            _notesKey.currentContext!,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+            alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+          );
+        }
+      });
+    }
   }
 
   Future<void> _loadPartData() async {
@@ -145,6 +162,7 @@ class _AuditPartScreenState extends ConsumerState<AuditPartScreen> {
   void dispose() {
     _debounceTimer?.cancel();
     _saveProgress();
+    _notesFocus.removeListener(_scrollToNotes);
     _notesController.dispose();
     _notesFocus.dispose();
     super.dispose();
@@ -197,12 +215,7 @@ class _AuditPartScreenState extends ConsumerState<AuditPartScreen> {
             ],
           ),
           body: SingleChildScrollView(
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 16,
-              bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
-            ),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -297,6 +310,7 @@ class _AuditPartScreenState extends ConsumerState<AuditPartScreen> {
                 Text('Catatan${part.needsNotes ? ' (Wajib)' : ' (Opsional)'}', style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 8),
                 TextFormField(
+                  key: _notesKey,
                   controller: _notesController,
                   focusNode: _notesFocus,
                   maxLines: 3,
@@ -309,7 +323,7 @@ class _AuditPartScreenState extends ConsumerState<AuditPartScreen> {
                   enabled: !isLocked,
                   onChanged: (_) => _onNotesChanged(),
                 ),
-                const SizedBox(height: 80),
+                const SizedBox(height: 300),
               ],
             ),
           ),

@@ -85,55 +85,73 @@ class CameraService {
     var image = img.decodeImage(bytes);
     if (image == null) throw Exception('Gagal memproses foto.');
 
-    // Resize if too large
-    if (image.width > 1920) {
-      image = img.copyResize(image, width: 1920);
+    // Resize if too large for performance
+    if (image.width > 1280) {
+      image = img.copyResize(image, width: 1280);
     }
 
-    // Add watermark strip at bottom
-    final watermarkHeight = 120;
-    final result = img.Image(
-      width: image.width,
-      height: image.height + watermarkHeight,
-    );
+    final width = image.width;
+    final height = image.height;
 
-    // Copy original image
-    img.compositeImage(result, image);
+    // ─── Draw Watermark Overlay (Bottom Section) ───
+    final overlayHeight = (height * 0.15).toInt().clamp(100, 180);
+    final overlayY = height - overlayHeight;
 
-    // Draw watermark background (semi-transparent dark)
+    // Semi-transparent black background at the bottom
     img.fillRect(
-      result,
+      image,
       x1: 0,
-      y1: image.height,
-      x2: image.width,
-      y2: image.height + watermarkHeight,
-      color: img.ColorRgba8(0, 0, 0, 200),
+      y1: overlayY,
+      x2: width,
+      y2: height,
+      color: img.ColorRgba8(0, 0, 0, 160),
     );
 
-    // Draw watermark text
-    final font = img.arial14;
+    // ─── Draw Info Text ───
+    final fontTitle = img.arial24;
+    final fontContent = img.arial14;
+    
     final dateStr = '${timestamp.day}/${timestamp.month}/${timestamp.year} '
         '${timestamp.hour.toString().padLeft(2, '0')}:'
-        '${timestamp.minute.toString().padLeft(2, '0')}:'
-        '${timestamp.second.toString().padLeft(2, '0')}';
+        '${timestamp.minute.toString().padLeft(2, '0')}';
+    
     final gpsStr = latitude != null && longitude != null
         ? '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}'
-        : 'GPS tidak tersedia';
+        : 'GPS Not Available';
 
-    int y = image.height + 8;
-    final lines = [
-      'Auditor: $auditorName',
-      'Lokasi: $locationName | Bagian: $partName',
-      'Tanggal: $dateStr',
-      'GPS: $gpsStr',
-      'ID: $qrCodeId',
-    ];
+    // Grouping: Row by Row for better alignment
+    int row1Y = overlayY + 15;
+    int row2Y = row1Y + 35;
+    int row3Y = row2Y + 22;
+    int row4Y = row3Y + 22;
 
-    for (final line in lines) {
-      img.drawString(result, line, font: font, x: 10, y: y,
-          color: img.ColorRgba8(255, 255, 255, 255));
-      y += 20;
-    }
+    // Row 1: Location Name (MAIN TITLE)
+    img.drawString(image, locationName.toUpperCase(), 
+        font: fontTitle, x: 20, y: row1Y, 
+        color: img.ColorRgba8(255, 204, 0, 255)); // Gold
+
+    // Row 2: Part Name (Left) & GPS (Right)
+    img.drawString(image, 'BAGIAN: $partName', 
+        font: fontContent, x: 20, y: row2Y, 
+        color: img.ColorRgba8(255, 255, 255, 255));
+    
+    img.drawString(image, '📍 $gpsStr', 
+        font: fontContent, x: (width - 300).clamp(20, width - 300), y: row2Y, 
+        color: img.ColorRgba8(255, 255, 255, 255));
+
+    // Row 3: Auditor (Left) & Time (Right)
+    img.drawString(image, 'AUDITOR: $auditorName', 
+        font: fontContent, x: 20, y: row3Y, 
+        color: img.ColorRgba8(255, 255, 255, 255));
+
+    img.drawString(image, '🕒 $dateStr', 
+        font: fontContent, x: (width - 300).clamp(20, width - 300), y: row3Y, 
+        color: img.ColorRgba8(255, 255, 255, 255));
+
+    // Row 4: Photo ID
+    img.drawString(image, 'ID: $qrCodeId', 
+        font: fontContent, x: 20, y: row4Y, 
+        color: img.ColorRgba8(180, 180, 180, 200));
 
     // Save to app directory
     final dir = await getApplicationDocumentsDirectory();
@@ -144,7 +162,7 @@ class CameraService {
 
     final fileName = 'audit_$qrCodeId.jpg';
     final outputFile = File('${photoDir.path}/$fileName');
-    await outputFile.writeAsBytes(img.encodeJpg(result, quality: 85));
+    await outputFile.writeAsBytes(img.encodeJpg(image, quality: 90));
 
     return outputFile;
   }

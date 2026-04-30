@@ -156,6 +156,7 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
   // FocusNode dan controller dibuat sekali — tidak rebuild
   final _notesFocus = FocusNode();
   final _notesController = TextEditingController();
+  final _notesKey = GlobalKey();
   final List<PhotoModel> _photos = [];
   bool _isSaving = false;
 
@@ -166,10 +167,27 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
     _hasDisease = widget.existing?.hasDisease ?? false;
     _notesController.text = widget.existing?.diseaseNotes ?? '';
     _loadPhotos();
+    _notesFocus.addListener(_scrollToNotes);
+  }
+
+  void _scrollToNotes() {
+    if (_notesFocus.hasFocus && _notesKey.currentContext != null) {
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (mounted && _notesKey.currentContext != null) {
+          Scrollable.ensureVisible(
+            _notesKey.currentContext!,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+            alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+          );
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
+    _notesFocus.removeListener(_scrollToNotes);
     _notesFocus.dispose();
     _notesController.dispose();
     super.dispose();
@@ -268,7 +286,7 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
     final isEdit = widget.existing != null;
 
     return Scaffold(
-      resizeToAvoidBottomInset: false, // Frame tetap untuk mencegah lag
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: Text(isEdit ? 'Edit Sampel Ternak' : 'Tambah Sampel Ternak'),
         leading: IconButton(
@@ -293,7 +311,7 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, 40 + MediaQuery.of(context).viewInsets.bottom),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -359,13 +377,13 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
               ),
             ),
 
-            // ── Catatan Penyakit ─────────────────────────────────
             RepaintBoundary(
               child: Offstage(
                 offstage: !_hasDisease,
                 child: Padding(
                   padding: const EdgeInsets.only(top: 14),
                   child: TextField(
+                    key: _notesKey,
                     controller: _notesController,
                     focusNode: _notesFocus,
                     maxLines: 4,
@@ -441,7 +459,7 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 300),
           ],
         ),
       ),

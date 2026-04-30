@@ -124,11 +124,20 @@ class AuditRepository {
   Future<void> deletePhoto(String photoId) async {
     final photo = HiveService.photos.get(photoId);
     if (photo != null) {
-      // Hapus file fisik jika ada
+      // 1. Hapus referensi ID foto dari AuditPart terkait jika ada
+      final part = HiveService.auditParts.get(photo.auditPartId);
+      if (part != null) {
+        part.photoIds.remove(photoId);
+        await HiveService.auditParts.put(part.id, part);
+      }
+
+      // 2. Hapus file fisik jika ada
       try {
         final file = File(photo.localPath);
         if (await file.exists()) await file.delete();
       } catch (_) {}
+
+      // 3. Hapus data foto dari Hive
       await HiveService.photos.delete(photoId);
     }
   }
