@@ -50,7 +50,7 @@ class CameraService {
       await initializeCamera();
       _isSessionActive = true;
     } catch (e) {
-      print('Gagal memulai sesi kamera: $e');
+      // Error ignored to reduce log noise
     }
   }
 
@@ -164,7 +164,7 @@ class CameraService {
         await tempController.dispose();
       }
     } catch (e) {
-      print('Error disposing camera: $e');
+      // Error ignored to reduce log noise
     }
   }
 

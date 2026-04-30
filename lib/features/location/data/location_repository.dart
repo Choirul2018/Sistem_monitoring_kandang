@@ -23,7 +23,7 @@ class LocationRepository {
 
       return locations;
     } catch (e) {
-      print('LocationRepository Error: $e');
+      // Error logged silently to reduce log noise
       
       // Jika internet/API gagal, baru ambil dari cache lokal
       final locals = HiveService.locations.values.toList();

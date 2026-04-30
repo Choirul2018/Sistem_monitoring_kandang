@@ -102,7 +102,6 @@ class ApiService {
 
       return response.statusCode == 200 || response.statusCode == 201;
     } catch (e) {
-      print('Error syncing to Laravel: $e');
       return false;
     }
   }
@@ -133,7 +132,7 @@ class ApiService {
     try {
       await _client.post('/logout');
     } catch (e) {
-      print('Logout error: $e');
+      // Log removed
     }
   }
 
@@ -147,7 +146,6 @@ class ApiService {
       }
       return [];
     } catch (e) {
-      print('Get locations error: $e');
       return [];
     }
   }

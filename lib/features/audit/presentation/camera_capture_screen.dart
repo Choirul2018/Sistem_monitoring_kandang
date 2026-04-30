@@ -116,12 +116,14 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
 
     // Check geofence
     if (!_isInsideGeofence) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Anda harus berada di dalam area lokasi untuk mengambil foto.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Anda harus berada di dalam area lokasi untuk mengambil foto.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
       return;
     }
 
@@ -243,8 +245,9 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
 
       // Simpan foto ke Hive
       await ref.read(auditRepositoryProvider).savePhoto(photo);
+      
+      if (!mounted || !context.mounted) return;
 
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Foto berhasil disimpan ✓'),
@@ -254,7 +257,9 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
       );
 
       // Kembalikan photoId agar caller bisa reload
-      Navigator.of(context).pop(photoId);
+      if (context.mounted) {
+        Navigator.of(context).pop(photoId);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {

@@ -75,7 +75,7 @@ class LocationModel extends HiveObject {
         return partsJson.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
       }
     } catch (e) {
-      print('Error parsing parts: $e');
+      // Parse error ignored to reduce log noise
     }
     
     return _defaultParts;
