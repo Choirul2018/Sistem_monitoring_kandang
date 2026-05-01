@@ -47,6 +47,22 @@ Agar foto yang diupload dari Flutter bisa muncul di Admin Panel:
 php artisan storage:link
 ```
 
+### Step 5: Menjalankan Server
+Untuk menjalankan backend Laravel selama pengembangan:
+
+**1. Standar (Localhost):**
+```bash
+php artisan serve
+```
+Akses di browser: `http://localhost:8000`
+
+**2. Akses dari HP Fisik (WiFi yang sama):**
+Gunakan IP Local komputer Anda (misal: `192.168.1.5`):
+```bash
+php artisan serve --host=0.0.0.0 --port=8000
+```
+Akses dari HP: `http://192.168.1.5:8000`
+
 ---
 
 ## 3. Instalasi Frontend (Flutter)
@@ -105,4 +121,4 @@ Buka `config/cors.php` dan pastikan domain Flutter Web Anda sudah diizinkan:
 
 ---
 
-*Terakhir diperbarui: 24 April 2026 - Antigravity AI Assistant*
+*Terakhir diperbarui: 1 Mei 2026 - Antigravity AI Assistant*

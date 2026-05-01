@@ -159,22 +159,8 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
     _hasDisease = widget.existing?.hasDisease ?? false;
     _notesController.text = widget.existing?.diseaseNotes ?? '';
     _photosNotifier = ValueNotifier<List<PhotoModel>>(_loadPhotosSync());
-    _notesFocus.addListener(_onFocusChange);
   }
 
-  void _onFocusChange() {
-    if (_notesFocus.hasFocus) {
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-    }
-  }
 
   List<PhotoModel> _loadPhotosSync() {
     return HiveService.photos.values
@@ -246,12 +232,9 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-    final bool isKeyboardOpen = keyboardHeight > 0;
-
     return Scaffold(
-      // Drastic optimization: Disable automatic resizing
-      resizeToAvoidBottomInset: false,
+      // KEMBALI KE STANDAR
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Text(widget.existing != null ? 'Edit Sampel' : 'Tambah Sampel'),
         leading: IconButton(
@@ -268,60 +251,60 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
       ),
       body: Scrollbar(
         controller: _scrollController,
-        child: SingleChildScrollView(
+        child: ListView(
           controller: _scrollController,
           padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Jenis Hewan ──
-              const Text('Jenis Hewan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _TypeTile(
-                      label: 'Ayam', icon: Icons.pets_rounded, 
-                      selected: _type == 'ayam', 
-                      onTap: () => setState(() => _type = 'ayam')
-                    ),
+          children: [
+            // ── Jenis Hewan ──
+            const Text('Jenis Hewan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _TypeTile(
+                    label: 'Ayam', icon: Icons.pets_rounded, 
+                    selected: _type == 'ayam', 
+                    onTap: () => setState(() => _type = 'ayam')
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _TypeTile(
-                      label: 'Bebek', icon: Icons.water_rounded, 
-                      selected: _type == 'bebek', 
-                      onTap: () => setState(() => _type = 'bebek')
-                    ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _TypeTile(
+                    label: 'Bebek', icon: Icons.water_rounded, 
+                    selected: _type == 'bebek', 
+                    onTap: () => setState(() => _type = 'bebek')
                   ),
-                ],
-              ),
-        
-              const SizedBox(height: 24),
-        
-              // ── Status Kesehatan ──
-              const Text('Status Kesehatan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              const SizedBox(height: 12),
-              Card(
-                margin: EdgeInsets.zero,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(color: AppColors.divider.withValues(alpha: 0.5)),
                 ),
-                child: SwitchListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  title: const Text('Terdeteksi Penyakit?', style: TextStyle(fontSize: 14)),
-                  subtitle: Text(_hasDisease ? 'Ada gejala penyakit' : 'Kondisi sehat', style: const TextStyle(fontSize: 12)),
-                  value: _hasDisease,
-                  activeThumbColor: AppColors.error,
-                  onChanged: (v) => setState(() => _hasDisease = v),
-                ),
+              ],
+            ),
+      
+            const SizedBox(height: 24),
+      
+            // ── Status Kesehatan ──
+            const Text('Status Kesehatan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const SizedBox(height: 12),
+            Card(
+              margin: EdgeInsets.zero,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: AppColors.divider.withValues(alpha: 0.5)),
               ),
-        
-              if (_hasDisease) ...[
-                const SizedBox(height: 16),
-                TextField(
+              child: SwitchListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                title: const Text('Terdeteksi Penyakit?', style: TextStyle(fontSize: 14)),
+                subtitle: Text(_hasDisease ? 'Ada gejala penyakit' : 'Kondisi sehat', style: const TextStyle(fontSize: 12)),
+                value: _hasDisease,
+                activeThumbColor: AppColors.error,
+                onChanged: (v) => setState(() => _hasDisease = v),
+              ),
+            ),
+      
+            if (_hasDisease) ...[
+              const SizedBox(height: 16),
+              // Isolasi cursor animation
+              RepaintBoundary(
+                child: TextField(
                   controller: _notesController,
                   focusNode: _notesFocus,
                   maxLines: 4,
@@ -331,26 +314,22 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
                     border: OutlineInputBorder(),
                   ),
                 ),
-              ],
-        
-              const SizedBox(height: 24),
-        
-              // FOTO SECTION (Hidden when keyboard open for max performance)
-              if (!isKeyboardOpen)
-                RepaintBoundary(
-                  child: _PhotoGridSection(
-                    notifier: _photosNotifier,
-                    onTakePhoto: _openCamera,
-                    onDeletePhoto: _deletePhoto,
-                  ),
-                )
-              else
-                const _KeyboardPlaceholder(),
-              
-              // Manual padding for keyboard
-              SizedBox(height: isKeyboardOpen ? keyboardHeight + 20 : 100),
+              ),
             ],
-          ),
+      
+            const SizedBox(height: 24),
+      
+            // FOTO SECTION (Selalu tampilkan agar tidak ada beban rebuild)
+            RepaintBoundary(
+              child: _PhotoGridSection(
+                notifier: _photosNotifier,
+                onTakePhoto: _openCamera,
+                onDeletePhoto: _deletePhoto,
+              ),
+            ),
+            
+            const SizedBox(height: 40),
+          ],
         ),
       ),
     );

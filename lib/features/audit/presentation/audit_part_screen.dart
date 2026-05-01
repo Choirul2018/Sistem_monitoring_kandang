@@ -44,23 +44,8 @@ class _AuditPartScreenState extends ConsumerState<AuditPartScreen> {
   void initState() {
     super.initState();
     _loadPartData();
-    _notesFocus.addListener(_onFocusChange);
   }
 
-  void _onFocusChange() {
-    if (_notesFocus.hasFocus) {
-      // Tunggu keyboard muncul lalu scroll ke bawah
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-    }
-  }
 
   Future<void> _loadPartData() async {
     final parts = await ref.read(auditPartsProvider(widget.auditId).future);
@@ -152,101 +137,108 @@ class _AuditPartScreenState extends ConsumerState<AuditPartScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auditAsync = ref.watch(auditDetailProvider(widget.auditId));
-    final partsAsync = ref.watch(auditPartsProvider(widget.auditId));
-    final double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
-    final bool isKeyboardOpen = keyboardHeight > 0;
 
     return Scaffold(
-      // KUNCI OPTIMASI: Matikan resize otomatis agar Scaffold tidak berat
-      resizeToAvoidBottomInset: false,
+      // KEMBALI KE STANDAR: Biarkan sistem yang handle resize
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Text(_currentPart?.partName ?? 'Memuat...'),
         actions: [
-          auditAsync.maybeWhen(
-            data: (audit) => audit?.isLocked == true 
-              ? const _ReadOnlyChip() 
-              : const _AutoSaveIndicator(),
-            orElse: () => const SizedBox.shrink(),
+          Consumer(
+            builder: (context, ref, _) {
+              final auditAsync = ref.watch(auditDetailProvider(widget.auditId));
+              return auditAsync.maybeWhen(
+                data: (audit) => audit?.isLocked == true 
+                  ? const _ReadOnlyChip() 
+                  : const _AutoSaveIndicator(),
+                orElse: () => const SizedBox.shrink(),
+              );
+            },
           ),
         ],
       ),
-      body: partsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
-        data: (parts) {
-          if (widget.partIndex >= parts.length) return const Center(child: Text('Indeks tidak valid'));
-          final part = parts[widget.partIndex];
-          final isLocked = auditAsync.valueOrNull?.isLocked ?? false;
+      body: Consumer(
+        builder: (context, ref, _) {
+          final partsAsync = ref.watch(auditPartsProvider(widget.auditId));
+          return partsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+            data: (parts) {
+              if (widget.partIndex >= parts.length) return const Center(child: Text('Indeks tidak valid'));
+              final part = parts[widget.partIndex];
+              
+              // Isolasi isLocked agar tidak rebuild seluruh list
+              return Consumer(
+                builder: (context, ref, _) {
+                  final isLocked = ref.watch(auditDetailProvider(widget.auditId)).valueOrNull?.isLocked ?? false;
 
-          return Scrollbar(
-            controller: _scrollController,
-            child: SingleChildScrollView(
-              controller: _scrollController,
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              physics: const ClampingScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Switch Ada/Tidak ──
-                  _PartExistsCard(
-                    exists: _partExists,
-                    isLocked: isLocked,
-                    onChanged: (v) => setState(() => _partExists = v),
-                  ),
-                  
-                  const SizedBox(height: 16),
+                  return Scrollbar(
+                    controller: _scrollController,
+                    child: ListView(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.all(16),
+                      cacheExtent: 1000, 
+                      children: [
+                        _PartExistsCard(
+                          exists: _partExists,
+                          isLocked: isLocked,
+                          onChanged: (v) => setState(() => _partExists = v),
+                        ),
+                        
+                        const SizedBox(height: 16),
 
-                  if (_partExists) ...[
-                    // ── Selector Kondisi ──
-                    _ConditionSelector(
-                      selected: _selectedCondition,
-                      isLocked: isLocked,
-                      onChanged: (val) => setState(() => _selectedCondition = val),
+                        if (_partExists) ...[
+                          _ConditionSelector(
+                            selected: _selectedCondition,
+                            isLocked: isLocked,
+                            onChanged: (val) => setState(() => _selectedCondition = val),
+                          ),
+                          
+                          const SizedBox(height: 20),
+
+                          _IsolatedPhotoSection(
+                            key: ValueKey('photo_section_${part.id}'),
+                            partId: part.id,
+                            auditId: widget.auditId,
+                            partIndex: widget.partIndex,
+                            isLocked: isLocked,
+                          ),
+                        ],
+
+                        const SizedBox(height: 24),
+
+                        RepaintBoundary(
+                          child: _NotesField(
+                            controller: _notesController,
+                            focusNode: _notesFocus,
+                            isLocked: isLocked,
+                            isRequired: part.needsNotes,
+                            onChanged: _onNotesChanged,
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 40),
+                      ],
                     ),
-                    
-                    const SizedBox(height: 20),
-
-                    // OPTIMASI: Sembunyikan bagian foto saat keyboard terbuka agar enteng
-                    // User sedang fokus nulis catatan, jadi tidak butuh liat foto.
-                    if (!isKeyboardOpen)
-                      _IsolatedPhotoSection(
-                        key: ValueKey('photo_section_${part.id}'),
-                        partId: part.id,
-                        auditId: widget.auditId,
-                        partIndex: widget.partIndex,
-                        isLocked: isLocked,
-                      )
-                    else
-                      const _KeyboardActivePlaceholder(),
-                  ],
-
-                  const SizedBox(height: 24),
-
-                  // ── SEKSI CATATAN ──
-                  _NotesField(
-                    controller: _notesController,
-                    focusNode: _notesFocus,
-                    isLocked: isLocked,
-                    isRequired: part.needsNotes,
-                    onChanged: _onNotesChanged,
-                  ),
-                  
-                  // PENTING: Padding manual setinggi keyboard agar bisa di-scroll
-                  SizedBox(height: isKeyboardOpen ? keyboardHeight + 20 : 100),
-                ],
-              ),
-            ),
+                  );
+                },
+              );
+            },
           );
         },
       ),
       // Bottom bar tetap tampil tapi bisa juga disembunyikan saat keyboard open
-      bottomNavigationBar: isKeyboardOpen ? null : SafeArea(
+      bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: _CompleteButton(
-            isLocked: auditAsync.valueOrNull?.isLocked ?? false,
-            onPressed: _completePart,
+          child: Consumer(
+            builder: (context, ref, _) {
+              final isLocked = ref.watch(auditDetailProvider(widget.auditId)).valueOrNull?.isLocked ?? false;
+              return _CompleteButton(
+                isLocked: isLocked,
+                onPressed: _completePart,
+              );
+            },
           ),
         ),
       ),
