@@ -27,18 +27,52 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final password = _passwordController.text.trim();
 
     if (username.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Username dan password harus diisi'), backgroundColor: AppColors.error),
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Data Tidak Lengkap'),
+          content: const Text('Username dan password wajib diisi.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
+          ],
+        ),
       );
       return;
     }
 
+    // Tampilkan loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
     try {
       await ref.read(authStateProvider.notifier).signIn(username: username, password: password);
-    } catch(e) {
+      if (mounted) Navigator.pop(context); // Tutup loading jika berhasil
+    } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: AppColors.error),
+        Navigator.pop(context); // Tutup loading jika gagal
+        
+        // Tampilkan dialog error yang jelas
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.error_outline, color: AppColors.error),
+                SizedBox(width: 8),
+                Text('Login Gagal'),
+              ],
+            ),
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Coba Lagi'),
+              ),
+            ],
+          ),
         );
       }
     }

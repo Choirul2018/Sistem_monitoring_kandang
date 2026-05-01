@@ -10,7 +10,6 @@ import 'package:sistem_monitoring_kandang/features/location/data/location_reposi
 import 'package:sistem_monitoring_kandang/features/location/data/location_model.dart';
 import 'package:sistem_monitoring_kandang/core/services/camera_service.dart';
 import 'package:sistem_monitoring_kandang/core/services/location_service.dart';
-import 'package:sistem_monitoring_kandang/core/services/ai_service.dart';
 import 'package:sistem_monitoring_kandang/core/services/sync_service.dart';
 import 'package:sistem_monitoring_kandang/features/sync/data/api_service.dart';
 import 'package:sistem_monitoring_kandang/core/constants/app_constants.dart';
@@ -20,7 +19,6 @@ final auditRepositoryProvider = Provider((ref) => AuditRepository());
 final locationRepositoryProvider = Provider((ref) => LocationRepository(ref.read(apiServiceProvider)));
 final cameraServiceProvider = Provider((ref) => CameraService());
 final locationServiceProvider = Provider((ref) => LocationService());
-final aiServiceProvider = Provider((ref) => AiService());
 final syncServiceProvider = Provider<SyncService>((ref) {
   final apiService = ref.read(apiServiceProvider);
   final service = SyncService(apiService);
