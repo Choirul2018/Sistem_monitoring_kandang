@@ -73,17 +73,19 @@ class _LivestockSamplingScreenState
         foregroundColor: Colors.white,
         child: const Icon(Icons.add_rounded),
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: ElevatedButton(
-            onPressed: () => context.pop(),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      bottomNavigationBar: _KeyboardSensitiveBottomBar(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: ElevatedButton(
+              onPressed: () => context.pop(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Selesai Sampling'),
             ),
-            child: const Text('Selesai Sampling'),
           ),
         ),
       ),
@@ -104,6 +106,17 @@ class _LivestockSamplingScreenState
         },
       ),
     );
+  }
+}
+
+class _KeyboardSensitiveBottomBar extends StatelessWidget {
+  final Widget child;
+  const _KeyboardSensitiveBottomBar({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final isKeyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    return isKeyboardOpen ? const SizedBox.shrink() : child;
   }
 }
 
@@ -249,11 +262,11 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
             ),
         ],
       ),
-      body: Scrollbar(
+      body: SingleChildScrollView(
         controller: _scrollController,
-        child: ListView(
-          controller: _scrollController,
-          padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Jenis Hewan ──
             const Text('Jenis Hewan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
@@ -313,11 +326,12 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
                     hintText: 'Tuliskan gejala...',
                     border: OutlineInputBorder(),
                   ),
+                  scrollPadding: EdgeInsets.zero,
                 ),
               ),
             ],
       
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
       
             // FOTO SECTION (Selalu tampilkan agar tidak ada beban rebuild)
             RepaintBoundary(
@@ -510,12 +524,28 @@ class _SampleCard extends StatelessWidget {
                 IconButton(icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.error), onPressed: onDelete),
               ],
             ),
+            if (sample.hasDisease && sample.diseaseNotes != null && sample.diseaseNotes!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Catatan: ${sample.diseaseNotes}',
+                  style: const TextStyle(fontSize: 12, color: AppColors.error),
+                ),
+              ),
+            ],
             if (sample.photoIds.isNotEmpty) ...[
               const SizedBox(height: 12),
               SizedBox(
                 height: 60,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
+                  physics: const ClampingScrollPhysics(),
                   itemCount: sample.photoIds.length,
                   separatorBuilder: (_, __) => const SizedBox(width: 8),
                   itemBuilder: (_, i) {

@@ -92,18 +92,28 @@ class SyncService {
           }
         } catch (e) {
           failed++;
+          // Optional: log error e
         }
       }
     } finally {
       _isSyncing = false;
     }
 
+    String message;
+    if (synced > 0 && failed == 0) {
+      message = '$synced audit berhasil dikirim ke server Laravel.';
+    } else if (synced > 0 && failed > 0) {
+      message = '$synced berhasil, $failed gagal dikirim. Cek koneksi Anda.';
+    } else if (failed > 0) {
+      message = 'Gagal mengirim $failed data. Periksa koneksi ke server Laravel.';
+    } else {
+      message = 'Semua data sudah tersinkronkan.';
+    }
+
     return SyncResult(
       synced: synced,
       failed: failed,
-      message: synced > 0
-          ? '$synced audit berhasil dikirim ke server Laravel.'
-          : 'Semua data sudah tersinkronkan.',
+      message: message,
     );
   }
 

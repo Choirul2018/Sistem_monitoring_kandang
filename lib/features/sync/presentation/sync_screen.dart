@@ -16,26 +16,50 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
   bool _isSyncing = false;
 
   Future<void> _handleSyncAll() async {
+    if (_isSyncing) return;
     setState(() => _isSyncing = true);
+
+    // Tampilkan dialog loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
     
     try {
-      // Use the provider from audit_provider (which is what we watch in list screen)
       final syncService = ref.read(syncServiceProvider);
       final result = await syncService.syncAll();
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+        Navigator.of(context).pop(); // Tutup loading
+        
+        // Tampilkan hasil via Dialog agar lebih jelas
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(result.failed > 0 ? 'Sinkronisasi Selesai' : 'Berhasil'),
             content: Text(result.message),
-            backgroundColor: result.failed > 0 ? AppColors.error : AppColors.success,
-            duration: const Duration(seconds: 4),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal sinkronisasi: $e'), backgroundColor: AppColors.error),
+        Navigator.of(context).pop(); // Tutup loading
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Gagal Sinkronisasi'),
+            content: Text('Terjadi kesalahan: $e'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Tutup')),
+            ],
+          ),
         );
       }
     } finally {

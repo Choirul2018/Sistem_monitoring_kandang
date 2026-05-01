@@ -167,17 +167,15 @@ class _AuditPartScreenState extends ConsumerState<AuditPartScreen> {
               if (widget.partIndex >= parts.length) return const Center(child: Text('Indeks tidak valid'));
               final part = parts[widget.partIndex];
               
-              // Isolasi isLocked agar tidak rebuild seluruh list
               return Consumer(
                 builder: (context, ref, _) {
                   final isLocked = ref.watch(auditDetailProvider(widget.auditId)).valueOrNull?.isLocked ?? false;
 
-                  return Scrollbar(
+                  return SingleChildScrollView(
                     controller: _scrollController,
-                    child: ListView(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(16),
-                      cacheExtent: 1000, 
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _PartExistsCard(
                           exists: _partExists,
@@ -217,7 +215,7 @@ class _AuditPartScreenState extends ConsumerState<AuditPartScreen> {
                           ),
                         ),
                         
-                        const SizedBox(height: 40),
+                        const SizedBox(height: 20),
                       ],
                     ),
                   );
@@ -227,18 +225,19 @@ class _AuditPartScreenState extends ConsumerState<AuditPartScreen> {
           );
         },
       ),
-      // Bottom bar tetap tampil tapi bisa juga disembunyikan saat keyboard open
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Consumer(
-            builder: (context, ref, _) {
-              final isLocked = ref.watch(auditDetailProvider(widget.auditId)).valueOrNull?.isLocked ?? false;
-              return _CompleteButton(
-                isLocked: isLocked,
-                onPressed: _completePart,
-              );
-            },
+      bottomNavigationBar: _KeyboardSensitiveBottomBar(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final isLocked = ref.watch(auditDetailProvider(widget.auditId)).valueOrNull?.isLocked ?? false;
+                return _CompleteButton(
+                  isLocked: isLocked,
+                  onPressed: _completePart,
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -249,6 +248,18 @@ class _AuditPartScreenState extends ConsumerState<AuditPartScreen> {
 // ════════════════════════════════════════════════════════════════
 // SUB-WIDGETS UNTUK OPTIMASI PERFORMANCE
 // ════════════════════════════════════════════════════════════════
+
+class _KeyboardSensitiveBottomBar extends StatelessWidget {
+  final Widget child;
+  const _KeyboardSensitiveBottomBar({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    // Hanya widget ini yang rebuild saat keyboard muncul
+    final isKeyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    return isKeyboardOpen ? const SizedBox.shrink() : child;
+  }
+}
 
 class _KeyboardActivePlaceholder extends StatelessWidget {
   const _KeyboardActivePlaceholder();
@@ -434,9 +445,9 @@ class _IsolatedPhotoSection extends ConsumerWidget {
                   error: (e, _) => Text('Error: $e'),
                   data: (photos) => ListView.builder(
                     scrollDirection: Axis.horizontal,
+                    physics: const ClampingScrollPhysics(),
                     itemCount: photos.length + 1,
                     itemExtent: 110,
-                    physics: const BouncingScrollPhysics(),
                     itemBuilder: (ctx, i) {
                       if (i == photos.length) return _AddPhotoButton(
                         isLocked: isLocked, 
@@ -613,6 +624,7 @@ class _NotesField extends StatelessWidget {
             filled: true,
           ),
           enabled: !isLocked,
+          scrollPadding: EdgeInsets.zero, // Jangan scroll otomatis terlalu banyak
           onChanged: (_) => onChanged(),
         ),
       ],
