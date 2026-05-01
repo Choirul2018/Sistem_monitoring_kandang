@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:hive/hive.dart';
 import '../../../core/network/api_client.dart';
 import 'user_model.dart';
@@ -40,6 +41,9 @@ class AuthRepository {
 
       return user;
     } catch (e) {
+      if (e is DioException && e.response?.statusCode == 401) {
+        throw Exception('Username atau password salah.');
+      }
       rethrow;
     }
   }
