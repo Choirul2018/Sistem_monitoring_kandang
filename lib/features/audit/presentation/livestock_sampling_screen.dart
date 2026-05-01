@@ -23,8 +23,6 @@ class _LivestockSamplingScreenState
     extends ConsumerState<LivestockSamplingScreen> {
   final _uuid = const Uuid();
 
-  /// Buka form sebagai layar penuh melalui Navigator biasa
-  /// (bukan GoRouter agar tidak ada konflik extra/callback)
   Future<void> _openForm([LivestockSampleModel? existing]) async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
@@ -36,7 +34,6 @@ class _LivestockSamplingScreenState
         ),
       ),
     );
-    // Setelah form ditutup, refresh daftar
     ref.invalidate(auditLivestockSamplesProvider(widget.auditId));
   }
 
@@ -47,14 +44,10 @@ class _LivestockSamplingScreenState
         title: const Text('Hapus Sampel?'),
         content: const Text('Data sampel dan foto terkait akan dihapus.'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(c, false),
-            child: const Text('Batal'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
           TextButton(
             onPressed: () => Navigator.pop(c, true),
-            child: const Text('Hapus',
-                style: TextStyle(color: AppColors.error)),
+            child: const Text('Hapus', style: TextStyle(color: AppColors.error)),
           ),
         ],
       ),
@@ -70,13 +63,14 @@ class _LivestockSamplingScreenState
 
   @override
   Widget build(BuildContext context) {
-    final samplesAsync =
-        ref.watch(auditLivestockSamplesProvider(widget.auditId));
+    final samplesAsync = ref.watch(auditLivestockSamplesProvider(widget.auditId));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Sampel Ternak')),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openForm(),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         child: const Icon(Icons.add_rounded),
       ),
       bottomNavigationBar: SafeArea(
@@ -87,6 +81,7 @@ class _LivestockSamplingScreenState
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             child: const Text('Selesai Sampling'),
           ),
@@ -96,25 +91,7 @@ class _LivestockSamplingScreenState
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (samples) {
-          if (samples.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.pets_rounded,
-                      size: 64, color: AppColors.textTertiary),
-                  const SizedBox(height: 16),
-                  const Text('Belum ada sampel ternak didokumentasikan'),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: () => _openForm(),
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Ambil Sampel Pertama'),
-                  ),
-                ],
-              ),
-            );
-          }
+          if (samples.isEmpty) return const _EmptySamplesView();
           return ListView.builder(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
             itemCount: samples.length,
@@ -130,8 +107,25 @@ class _LivestockSamplingScreenState
   }
 }
 
+class _EmptySamplesView extends StatelessWidget {
+  const _EmptySamplesView();
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.pets_rounded, size: 64, color: AppColors.textTertiary),
+          const SizedBox(height: 16),
+          const Text('Belum ada sampel ternak didokumentasikan'),
+        ],
+      ),
+    );
+  }
+}
+
 // ════════════════════════════════════════════════════════════════
-// FORM SCREEN — Anti-lag: TextField selalu di tree (Offstage)
+// FORM SCREEN — OPTIMIZED UNTUK PERFORMANCE KEYBOARD (PHASE 3)
 // ════════════════════════════════════════════════════════════════
 
 class _SampleFormScreen extends StatefulWidget {
@@ -152,12 +146,10 @@ class _SampleFormScreen extends StatefulWidget {
 class _SampleFormScreenState extends State<_SampleFormScreen> {
   late String _type;
   late bool _hasDisease;
-
-  // FocusNode dan controller dibuat sekali — tidak rebuild
   final _notesFocus = FocusNode();
   final _notesController = TextEditingController();
-  final _notesKey = GlobalKey();
-  final List<PhotoModel> _photos = [];
+  final _scrollController = ScrollController();
+  late final ValueNotifier<List<PhotoModel>> _photosNotifier;
   bool _isSaving = false;
 
   @override
@@ -166,74 +158,52 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
     _type = widget.existing?.animalType ?? 'ayam';
     _hasDisease = widget.existing?.hasDisease ?? false;
     _notesController.text = widget.existing?.diseaseNotes ?? '';
-    _loadPhotos();
-    _notesFocus.addListener(_scrollToNotes);
+    _photosNotifier = ValueNotifier<List<PhotoModel>>(_loadPhotosSync());
+    _notesFocus.addListener(_onFocusChange);
   }
 
-  void _scrollToNotes() {
-    if (_notesFocus.hasFocus && _notesKey.currentContext != null) {
-      Future.delayed(const Duration(milliseconds: 350), () {
-        if (mounted && _notesKey.currentContext != null) {
-          Scrollable.ensureVisible(
-            _notesKey.currentContext!,
-            duration: const Duration(milliseconds: 250),
+  void _onFocusChange() {
+    if (_notesFocus.hasFocus) {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 200),
             curve: Curves.easeOut,
-            alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
           );
         }
       });
     }
   }
 
+  List<PhotoModel> _loadPhotosSync() {
+    return HiveService.photos.values
+        .where((p) => p.auditPartId == widget.sampleId)
+        .toList()
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+  }
+
   @override
   void dispose() {
-    _notesFocus.removeListener(_scrollToNotes);
     _notesFocus.dispose();
     _notesController.dispose();
+    _photosNotifier.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void _loadPhotos() {
-    final photos = HiveService.photos.values
-        .where((p) => p.auditPartId == widget.sampleId)
-        .toList()
-      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-    _photos
-      ..clear()
-      ..addAll(photos);
-  }
-
-  /// Membaca ulang foto dari Hive dengan mekanisme retry untuk mencegah race condition
   void _reloadPhotos() {
-    _performReload();
-    
-    // Coba lagi setelah 500ms untuk memastikan data yang baru disimpan sudah terbaca
+    _photosNotifier.value = _loadPhotosSync();
     Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) _performReload();
+      if (mounted) _photosNotifier.value = _loadPhotosSync();
     });
   }
 
-  void _performReload() {
-    final photos = HiveService.photos.values
-        .where((p) => p.auditPartId == widget.sampleId)
-        .toList()
-      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
-    
-    if (mounted) {
-      setState(() {
-        _photos.clear();
-        _photos.addAll(photos);
-      });
-    }
-  }
-
   Future<void> _openCamera() async {
-    if (!mounted) return;
     FocusScope.of(context).unfocus();
     await Future.delayed(const Duration(milliseconds: 100));
     if (!mounted) return;
 
-    // Tunggu kamera ditutup sepenuhnya
     await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (_) => CameraCaptureScreen(
@@ -243,7 +213,6 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
       ),
     );
 
-    // Beri jeda sangat singkat agar Hive selesai menulis ke disk
     if (mounted) {
       await Future.delayed(const Duration(milliseconds: 300));
       _reloadPhotos();
@@ -251,18 +220,13 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
   }
 
   void _deletePhoto(PhotoModel photo) {
-    try {
-      File(photo.localPath).exists().then((e) {
-        if (e) File(photo.localPath).delete();
-      });
-    } catch (_) {}
     HiveService.photos.delete(photo.id);
-    setState(() => _photos.remove(photo));
+    try { File(photo.localPath).delete(); } catch (_) {}
+    _photosNotifier.value = _loadPhotosSync();
   }
 
   Future<void> _save() async {
     if (_isSaving) return;
-    // Tutup keyboard sebelum simpan
     FocusScope.of(context).unfocus();
     setState(() => _isSaving = true);
 
@@ -272,204 +236,149 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
       animalType: _type,
       hasDisease: _hasDisease,
       diseaseNotes: _hasDisease ? _notesController.text.trim() : null,
-      photoIds: _photos.map((p) => p.id).toList(),
+      photoIds: _photosNotifier.value.map((p) => p.id).toList(),
       createdAt: widget.existing?.createdAt ?? DateTime.now(),
     );
 
     await HiveService.livestockSamples.put(sample.id, sample);
-
     if (mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isEdit = widget.existing != null;
+    final double keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+    final bool isKeyboardOpen = keyboardHeight > 0;
 
     return Scaffold(
+      // Drastic optimization: Disable automatic resizing
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        title: Text(isEdit ? 'Edit Sampel Ternak' : 'Tambah Sampel Ternak'),
+        title: Text(widget.existing != null ? 'Edit Sampel' : 'Tambah Sampel'),
         leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          if (_isSaving)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2)),
-            )
-          else
+          if (!_isSaving)
             TextButton(
               onPressed: _save,
-              child: const Text('Simpan',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text('SIMPAN', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Jenis Hewan ──────────────────────────────────────
-            const RepaintBoundary(
-              child: Text('Jenis Hewan',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: RepaintBoundary(
+      body: Scrollbar(
+        controller: _scrollController,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Jenis Hewan ──
+              const Text('Jenis Hewan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
                     child: _TypeTile(
-                      label: 'Ayam',
-                      icon: Icons.pets_rounded,
-                      selected: _type == 'ayam',
-                      onTap: () => setState(() => _type = 'ayam'),
+                      label: 'Ayam', icon: Icons.pets_rounded, 
+                      selected: _type == 'ayam', 
+                      onTap: () => setState(() => _type = 'ayam')
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: RepaintBoundary(
+                  const SizedBox(width: 12),
+                  Expanded(
                     child: _TypeTile(
-                      label: 'Bebek',
-                      icon: Icons.water_rounded,
-                      selected: _type == 'bebek',
-                      onTap: () => setState(() => _type = 'bebek'),
+                      label: 'Bebek', icon: Icons.water_rounded, 
+                      selected: _type == 'bebek', 
+                      onTap: () => setState(() => _type = 'bebek')
                     ),
                   ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            // ── Status Kesehatan ─────────────────────────────────
-            const RepaintBoundary(
-              child: Text('Status Kesehatan',
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-            ),
-            const SizedBox(height: 8),
-            RepaintBoundary(
-              child: Card(
+                ],
+              ),
+        
+              const SizedBox(height: 24),
+        
+              // ── Status Kesehatan ──
+              const Text('Status Kesehatan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              const SizedBox(height: 12),
+              Card(
                 margin: EdgeInsets.zero,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: AppColors.divider.withValues(alpha: 0.5)),
+                ),
                 child: SwitchListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                  title: const Text('Terdeteksi Penyakit?'),
-                  subtitle: Text(_hasDisease ? 'Ada gejala' : 'Sehat'),
+                  title: const Text('Terdeteksi Penyakit?', style: TextStyle(fontSize: 14)),
+                  subtitle: Text(_hasDisease ? 'Ada gejala penyakit' : 'Kondisi sehat', style: const TextStyle(fontSize: 12)),
                   value: _hasDisease,
-                  activeColor: AppColors.error,
-                  onChanged: (v) {
-                    setState(() => _hasDisease = v);
-                    if (v) {
-                      Future.delayed(const Duration(milliseconds: 50), () {
-                        if (mounted) _notesFocus.requestFocus();
-                      });
-                    }
-                  },
+                  activeThumbColor: AppColors.error,
+                  onChanged: (v) => setState(() => _hasDisease = v),
                 ),
               ),
-            ),
-
-            RepaintBoundary(
-              child: Offstage(
-                offstage: !_hasDisease,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 14),
-                  child: TextField(
-                    key: _notesKey,
-                    controller: _notesController,
-                    focusNode: _notesFocus,
-                    maxLines: 4,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _notesFocus.unfocus(),
-                    decoration: const InputDecoration(
-                      labelText: 'Catatan Penyakit',
-                      hintText: 'Tuliskan gejala yang ditemukan...',
-                      border: OutlineInputBorder(),
-                      alignLabelWithHint: true,
-                    ),
+        
+              if (_hasDisease) ...[
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _notesController,
+                  focusNode: _notesFocus,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Catatan Penyakit',
+                    hintText: 'Tuliskan gejala...',
+                    border: OutlineInputBorder(),
                   ),
                 ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // ── Foto ─────────────────────────────────────────────
-            const RepaintBoundary(
-              child: Text('Dokumentasi Foto',
-                  style:
-                      TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                RepaintBoundary(
-                  child: GestureDetector(
-                    onTap: _isSaving ? null : _openCamera,
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceVariant,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.divider),
-                      ),
-                      child: const Icon(Icons.add_a_photo_rounded,
-                          color: AppColors.primary),
-                    ),
-                  ),
-                ),
-                for (final p in _photos)
-                  RepaintBoundary(
-                    key: ValueKey('thumb_${p.id}'),
-                    child: _PhotoThumb(
-                        photo: p, onDelete: () => _deletePhoto(p)),
-                  ),
               ],
-            ),
-
-            const SizedBox(height: 40),
-
-            // ── Tombol Simpan ─────────────────────────────────────
-            RepaintBoundary(
-              child: SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton.icon(
-                  onPressed: _isSaving ? null : _save,
-                  icon: _isSaving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.save_rounded),
-                  label: Text(isEdit ? 'Simpan Perubahan' : 'Simpan Sampel'),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 300),
-          ],
+        
+              const SizedBox(height: 24),
+        
+              // FOTO SECTION (Hidden when keyboard open for max performance)
+              if (!isKeyboardOpen)
+                RepaintBoundary(
+                  child: _PhotoGridSection(
+                    notifier: _photosNotifier,
+                    onTakePhoto: _openCamera,
+                    onDeletePhoto: _deletePhoto,
+                  ),
+                )
+              else
+                const _KeyboardPlaceholder(),
+              
+              // Manual padding for keyboard
+              SizedBox(height: isKeyboardOpen ? keyboardHeight + 20 : 100),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ════════════════════════════════════════════════════════════════
-// Widget Pendukung
-// ════════════════════════════════════════════════════════════════
+class _KeyboardPlaceholder extends StatelessWidget {
+  const _KeyboardPlaceholder();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.image_outlined, color: AppColors.textTertiary),
+          SizedBox(width: 12),
+          Text('Foto disembunyikan agar mengetik lebih lancar...', 
+               style: TextStyle(fontSize: 12, color: AppColors.textTertiary, fontStyle: FontStyle.italic)),
+        ],
+      ),
+    );
+  }
+}
 
 class _TypeTile extends StatelessWidget {
   final String label;
@@ -477,43 +386,25 @@ class _TypeTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _TypeTile(
-      {required this.label,
-      required this.icon,
-      required this.selected,
-      required this.onTap});
+  const _TypeTile({required this.label, required this.icon, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 18),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: selected
-              ? AppColors.primary.withOpacity(0.08)
-              : AppColors.surfaceVariant,
+          color: selected ? AppColors.primary.withValues(alpha: 0.08) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: selected ? AppColors.primary : AppColors.divider,
-              width: 2),
+          border: Border.all(color: selected ? AppColors.primary : AppColors.divider, width: 2),
         ),
         child: Column(
           children: [
-            Icon(icon,
-                color:
-                    selected ? AppColors.primary : AppColors.textTertiary,
-                size: 26),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: TextStyle(
-                  color: selected
-                      ? AppColors.primary
-                      : AppColors.textPrimary,
-                  fontWeight: FontWeight.w600),
-            ),
+            Icon(icon, color: selected ? AppColors.primary : AppColors.textTertiary, size: 24),
+            const SizedBox(height: 4),
+            Text(label, style: TextStyle(color: selected ? AppColors.primary : null, fontWeight: selected ? FontWeight.bold : null)),
           ],
         ),
       ),
@@ -521,48 +412,89 @@ class _TypeTile extends StatelessWidget {
   }
 }
 
-class _PhotoThumb extends StatelessWidget {
-  final PhotoModel photo;
-  final VoidCallback onDelete;
+class _PhotoGridSection extends StatelessWidget {
+  final ValueNotifier<List<PhotoModel>> notifier;
+  final VoidCallback onTakePhoto;
+  final ValueChanged<PhotoModel> onDeletePhoto;
 
-  const _PhotoThumb({required this.photo, required this.onDelete});
+  const _PhotoGridSection({required this.notifier, required this.onTakePhoto, required this.onDeletePhoto});
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Image.file(
-            File(photo.localPath),
-            width: 80,
-            height: 80,
-            fit: BoxFit.cover,
-            cacheWidth: 160, // Batasi resolusi decode agar ringan
-            errorBuilder: (_, __, ___) => Container(
-              width: 80,
-              height: 80,
-              color: AppColors.error.withOpacity(0.1),
-              child: const Icon(Icons.broken_image,
-                  size: 24, color: AppColors.error),
-            ),
-          ),
-        ),
-        Positioned(
-          top: 4,
-          right: 4,
-          child: GestureDetector(
-            onTap: onDelete,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: const BoxDecoration(
-                  color: Colors.black54, shape: BoxShape.circle),
-              child: const Icon(Icons.close_rounded,
-                  color: Colors.white, size: 14),
-            ),
-          ),
+        const Text('Dokumentasi Foto', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        const SizedBox(height: 12),
+        ValueListenableBuilder<List<PhotoModel>>(
+          valueListenable: notifier,
+          builder: (context, photos, _) {
+            return Wrap(
+              spacing: 10, runSpacing: 10,
+              children: [
+                _AddPhotoBox(onTap: onTakePhoto),
+                for (final p in photos)
+                  _PhotoThumbnail(key: ValueKey(p.id), photo: p, onDelete: () => onDeletePhoto(p)),
+              ],
+            );
+          },
         ),
       ],
+    );
+  }
+}
+
+class _AddPhotoBox extends StatelessWidget {
+  final VoidCallback onTap;
+  const _AddPhotoBox({required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 80, height: 80,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.divider),
+        ),
+        child: const Icon(Icons.add_a_photo_rounded, color: AppColors.primary),
+      ),
+    );
+  }
+}
+
+class _PhotoThumbnail extends StatelessWidget {
+  final PhotoModel photo;
+  final VoidCallback onDelete;
+  const _PhotoThumbnail({super.key, required this.photo, required this.onDelete});
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 80, height: 80,
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.file(
+              File(photo.localPath),
+              width: 80, height: 80, fit: BoxFit.cover,
+              cacheWidth: 160, gaplessPlayback: true,
+            ),
+          ),
+          Positioned(
+            top: 4, right: 4,
+            child: GestureDetector(
+              onTap: onDelete,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                child: const Icon(Icons.close_rounded, color: Colors.white, size: 14),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -572,136 +504,53 @@ class _SampleCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
-  const _SampleCard(
-      {required this.sample,
-      required this.onEdit,
-      required this.onDelete});
+  const _SampleCard({required this.sample, required this.onEdit, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: Card(
-        margin: const EdgeInsets.only(bottom: 12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      sample.animalType == 'ayam'
-                          ? Icons.egg_rounded
-                          : Icons.waves_rounded,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(sample.animalType.toUpperCase(),
-                            style:
-                                const TextStyle(fontWeight: FontWeight.bold)),
-                        Text(
-                          '${sample.createdAt.hour.toString().padLeft(2, '0')}:'
-                          '${sample.createdAt.minute.toString().padLeft(2, '0')}'
-                          ' — ${sample.createdAt.day}/${sample.createdAt.month}/${sample.createdAt.year}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.edit_rounded,
-                        size: 20, color: AppColors.primary),
-                    onPressed: onEdit,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline_rounded,
-                        size: 20, color: AppColors.error),
-                    onPressed: onDelete,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: sample.hasDisease
-                          ? AppColors.errorLight
-                          : AppColors.successLight,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      sample.hasDisease ? 'PENYAKIT' : 'SEHAT',
-                      style: TextStyle(
-                        color: sample.hasDisease
-                            ? AppColors.error
-                            : AppColors.success,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (sample.diseaseNotes != null) ...[
-                const SizedBox(height: 10),
-                const Text('Catatan Penyakit:',
-                    style: TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.bold)),
-                Text(sample.diseaseNotes!,
-                    style: const TextStyle(fontSize: 12)),
-              ],
-              if (sample.photoIds.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 64,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: sample.photoIds.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (_, i) {
-                      final p =
-                          HiveService.photos.get(sample.photoIds[i]);
-                      if (p == null) return const SizedBox.shrink();
-                      return RepaintBoundary(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.file(
-                            File(p.localPath),
-                            width: 64,
-                            height: 64,
-                            fit: BoxFit.cover,
-                            cacheWidth: 128,
-                            errorBuilder: (_, __, ___) => Container(
-                              width: 64,
-                              height: 64,
-                              color: AppColors.error.withOpacity(0.1),
-                              child: const Icon(Icons.broken_image,
-                                  size: 20, color: AppColors.error),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: AppColors.divider.withValues(alpha: 0.5)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(sample.animalType == 'ayam' ? Icons.egg_rounded : Icons.waves_rounded, color: AppColors.primary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(sample.animalType.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)),
                 ),
+                IconButton(icon: const Icon(Icons.edit_rounded, size: 18), onPressed: onEdit),
+                IconButton(icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.error), onPressed: onDelete),
               ],
+            ),
+            if (sample.photoIds.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 60,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: sample.photoIds.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (_, i) {
+                    final p = HiveService.photos.get(sample.photoIds[i]);
+                    if (p == null) return const SizedBox.shrink();
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.file(File(p.localPath), width: 60, height: 60, fit: BoxFit.cover, cacheWidth: 120),
+                    );
+                  },
+                ),
+              ),
             ],
-          ),
+          ],
         ),
       ),
     );

@@ -141,11 +141,11 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
         _isProcessing = false;
         _validationPassed = true;
         _validationMessage = 'Foto siap disimpan ✓';
+        _cameraController = null; // Hapus referensi agar UI tidak render CameraPreview
       });
 
-      // Tutup kamera setelah ambil foto
-      await cameraService.dispose();
-      _cameraController = null;
+      // Tutup kamera di background
+      cameraService.dispose();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -290,16 +290,10 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) return;
-        
-        // Matikan kamera terlebih dahulu secara async
-        await ref.read(cameraServiceProvider).dispose();
-        
-        // Baru keluar dari halaman
-        if (context.mounted) {
-          Navigator.of(context).pop(false);
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop && mounted) {
+          setState(() => _cameraController = null);
         }
       },
       child: Scaffold(
@@ -315,7 +309,7 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
                   fit: BoxFit.contain,
                 ),
               )
-            else if (!_isInitializing && _cameraController != null)
+            else if (!_isInitializing && _cameraController != null && _cameraController!.value.isInitialized)
               Positioned.fill(
                 child: CameraPreview(_cameraController!),
               )
@@ -347,10 +341,7 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.close_rounded, color: Colors.white),
-                      onPressed: () async {
-                        await ref.read(cameraServiceProvider).dispose();
-                        if (context.mounted) Navigator.of(context).pop(null);
-                      },
+                      onPressed: () => Navigator.of(context).pop(null),
                     ),
                     const Spacer(),
                     // GPS Indicator
