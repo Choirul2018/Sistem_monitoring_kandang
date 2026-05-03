@@ -57,11 +57,11 @@ php artisan serve
 Akses di browser: `http://localhost:8000`
 
 **2. Akses dari HP Fisik (WiFi yang sama):**
-Gunakan IP Local komputer Anda (misal: `192.168.1.5`):
+Gunakan IP Local komputer Anda (misal: `192.168.0.103`):
 ```bash
 php artisan serve --host=0.0.0.0 --port=8000
 ```
-Akses dari HP: `http://192.168.1.5:8000`
+Akses dari HP: `http://192.168.0.103:8000`
 
 ---
 
@@ -76,7 +76,7 @@ flutter pub get
 Buka file `lib/core/network/api_client.dart` dan sesuaikan `baseUrl`:
 - **Chrome/Localhost**: `http://localhost:8000/api`
 - **Emulator Android**: `http://10.0.2.2:8000/api`
-- **HP Fisik**: Isikan IP WiFi laptop Anda (contoh: `http://192.168.1.5:8000/api`)
+- **HP Fisik**: Isikan IP WiFi laptop Anda (contoh: `http://192.168.0.103:8000/api`)
 
 ---
 

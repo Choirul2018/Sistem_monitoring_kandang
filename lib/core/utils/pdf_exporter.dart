@@ -1,15 +1,16 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:path_provider/path_provider.dart';
+import 'package:printing/printing.dart';
 import '../../features/audit/data/audit_model.dart';
 import '../../features/audit/data/audit_part_model.dart';
 import '../../features/audit/data/photo_model.dart';
 import '../../features/audit/data/livestock_sample_model.dart';
 
 class PdfExporter {
-  static Future<File> generateReport({
+  static Future<Uint8List> generateReport({
     required AuditModel audit,
     required List<AuditPartModel> parts,
     required List<LivestockSampleModel> samples,
@@ -143,16 +144,19 @@ class PdfExporter {
       );
     }
 
-    // ─── Detail Pages (one per part) ───
-    for (final part in parts) {
-      final partPhotos = (photos[part.id] ?? []).cast<PhotoModel>();
+    // ─── Detail Pages (all parts in one MultiPage) ───
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(40),
+        build: (context) {
+          final List<pw.Widget> allWidgets = [];
 
-      pdf.addPage(
-        pw.MultiPage(
-          pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(40),
-          build: (context) {
-            final widgets = <pw.Widget>[
+          for (final part in parts) {
+            final partPhotos = (photos[part.id] ?? []).cast<PhotoModel>();
+
+            allWidgets.addAll([
+              pw.SizedBox(height: 10),
               pw.Text(
                 'Bagian: ${part.partName}',
                 style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
@@ -183,17 +187,17 @@ class PdfExporter {
                 pw.Text('Catatan: ${part.notes}', style: const pw.TextStyle(fontSize: 11)),
               ],
               pw.SizedBox(height: 16),
-            ];
+            ]);
 
             // Add photos
             if (partPhotos.isNotEmpty) {
-              widgets.add(
+              allWidgets.add(
                 pw.Text(
                   'Foto (${partPhotos.length}):',
                   style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
                 ),
               );
-              widgets.add(pw.SizedBox(height: 8));
+              allWidgets.add(pw.SizedBox(height: 8));
 
               for (final photo in partPhotos) {
                 final file = File(photo.localPath);
@@ -202,7 +206,7 @@ class PdfExporter {
                     final imageBytes = file.readAsBytesSync();
                     final image = pw.MemoryImage(imageBytes);
 
-                    widgets.add(
+                    allWidgets.add(
                       pw.Container(
                         margin: const pw.EdgeInsets.only(bottom: 12),
                         child: pw.Column(
@@ -211,14 +215,20 @@ class PdfExporter {
                             pw.ClipRRect(
                               horizontalRadius: 4,
                               verticalRadius: 4,
-                              child: pw.Image(image, width: 400, fit: pw.BoxFit.fitWidth),
+                              child: pw.Image(
+                                image,
+                                width: 400,
+                                // Berikan maxHeight agar tidak merusak layout engine jika gambar terlalu tinggi
+                                height: 300,
+                                fit: pw.BoxFit.contain,
+                              ),
                             ),
                             pw.SizedBox(height: 4),
                             pw.Text(
                               'GPS: ${photo.coordinatesString} | '
                               'Waktu: ${photo.timestamp.day}/${photo.timestamp.month}/${photo.timestamp.year} '
                               '${photo.timestamp.hour}:${photo.timestamp.minute.toString().padLeft(2, "0")} | '
-                              'ID: ${photo.qrCodeId.substring(0, 8)}',
+                              'ID: ${photo.qrCodeId.length > 8 ? photo.qrCodeId.substring(0, 8) : photo.qrCodeId}',
                               style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
                             ),
                           ],
@@ -226,17 +236,20 @@ class PdfExporter {
                       ),
                     );
                   } catch (_) {
-                    widgets.add(pw.Text('[Foto tidak dapat dimuat]'));
+                    allWidgets.add(pw.Text('[Foto tidak dapat dimuat]'));
                   }
                 }
               }
             }
+            
+            allWidgets.add(pw.Divider(color: PdfColors.grey300));
+            allWidgets.add(pw.SizedBox(height: 10));
+          }
 
-            return widgets;
-          },
-        ),
-      );
-    }
+          return allWidgets;
+        },
+      ),
+    );
 
     // ─── Signature Page ───
     if (audit.signatureData != null) {
@@ -283,12 +296,7 @@ class PdfExporter {
       );
     }
 
-    // Save to file
-    final dir = await getApplicationDocumentsDirectory();
-    final file = File('${dir.path}/laporan_audit_${audit.id.substring(0, 8)}.pdf');
-    await file.writeAsBytes(await pdf.save());
-
-    return file;
+    return await pdf.save();
   }
 
   static pw.Widget _buildInfoRow(String label, String value) {

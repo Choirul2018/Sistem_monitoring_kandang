@@ -41,10 +41,23 @@ class AuthRepository {
 
       return user;
     } catch (e) {
-      if (e is DioException && e.response?.statusCode == 401) {
-        throw Exception('Username atau password salah.');
+      if (e is DioException) {
+        if (e.type == DioExceptionType.connectionTimeout || 
+            e.type == DioExceptionType.sendTimeout || 
+            e.type == DioExceptionType.receiveTimeout) {
+          throw Exception('Koneksi lambat. Silakan coba lagi nanti.');
+        }
+        if (e.type == DioExceptionType.connectionError) {
+          throw Exception('Tidak dapat terhubung ke server. Periksa koneksi internet atau alamat IP backend Anda.');
+        }
+        if (e.response?.statusCode == 401) {
+          throw Exception('Username atau password salah.');
+        }
+        if (e.response?.statusCode == 500) {
+          throw Exception('Terjadi kesalahan pada server (500).');
+        }
       }
-      rethrow;
+      throw Exception('Gagal masuk: Terjadi kesalahan yang tidak diketahui.');
     }
   }
 

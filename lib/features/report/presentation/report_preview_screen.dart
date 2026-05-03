@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../audit/presentation/providers/audit_provider.dart';
 import '../../audit/data/audit_model.dart';
@@ -37,16 +38,18 @@ class _ReportPreviewScreenState extends ConsumerState<ReportPreviewScreen> {
         allPhotos[part.id] = photos;
       }
 
-      final pdfFile = await PdfExporter.generateReport(
+      final pdfBytes = await PdfExporter.generateReport(
         audit: audit,
         parts: parts,
         samples: samples,
         photos: allPhotos,
       );
 
-      await Share.shareXFiles(
-        [XFile(pdfFile.path)],
-        text: 'Laporan Audit - ${audit.locationName}',
+      // Gunakan Printing.layoutPdf untuk hasil yang lebih stabil di Android/iOS/Web
+      // Ini akan membuka dialog Print/Save native
+      await Printing.layoutPdf(
+        onLayout: (format) async => pdfBytes,
+        name: 'Laporan_Audit_${audit.locationName?.replaceAll(" ", "_") ?? "Export"}.pdf',
       );
     } catch (e) {
       if (mounted) {
