@@ -16,6 +16,7 @@ void main() async {
 
   // Initialize Hive (local database)
   await Hive.initFlutter();
+  
   await HiveService.initialize();
 
   // Set system UI overlay style
