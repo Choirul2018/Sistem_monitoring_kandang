@@ -80,95 +80,89 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      // Menggunakan resizeToAvoidBottomInset true adalah yang paling stabil
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: IntrinsicHeight(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const SizedBox(height: 40),
-                      // Logo or Icon
-                      Icon(
-                        Icons.assignment_turned_in_rounded,
-                        size: 80,
-                        color: AppColors.primary,
-                      ),
-                      const SizedBox(height: 24),
-                      
-                      Text(
-                        'Sistem Monitoring\nKandang',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.primary,
-                            ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Masuk untuk memulai audit',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
-                            ),
-                      ),
-                      const SizedBox(height: 48),
-
-                      // Username Field
-                      TextFormField(
-                        controller: _usernameController,
-                        keyboardType: TextInputType.text,
-                        decoration: InputDecoration(
-                          labelText: 'Username',
-                          prefixIcon: const Icon(Icons.person_outline_rounded),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Password Field
-                      TextFormField(
-                        controller: _passwordController,
-                        obscureText: _obscureText,
-                        decoration: InputDecoration(
-                          labelText: 'Password',
-                          prefixIcon: const Icon(Icons.lock_outline),
-                          suffixIcon: IconButton(
-                            icon: Icon(_obscureText ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                            onPressed: () => setState(() => _obscureText = !_obscureText),
-                          ),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Login Button
-                      ElevatedButton(
-                        onPressed: state.isLoading ? null : _login,
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: state.isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Text('Masuk', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      ),
-                      const SizedBox(height: 40),
-                    ],
+        child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          // Menggunakan physics ini agar tidak ada efek bouncing yang berat
+          physics: const ClampingScrollPhysics(),
+          children: [
+            const SizedBox(height: 60),
+            // Logo or Icon
+            Icon(
+              Icons.assignment_turned_in_rounded,
+              size: 80,
+              color: AppColors.primary,
+            ),
+            const SizedBox(height: 24),
+            
+            Text(
+              'Sistem Monitoring\nKandang',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
                   ),
-                ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Masuk untuk memulai audit',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                  ),
+            ),
+            const SizedBox(height: 48),
+
+            // Username Field
+            TextFormField(
+              controller: _usernameController,
+              keyboardType: TextInputType.text,
+              textInputAction: TextInputAction.next,
+              decoration: InputDecoration(
+                labelText: 'Username',
+                prefixIcon: const Icon(Icons.person_outline_rounded),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
-            );
-          },
+            ),
+            const SizedBox(height: 16),
+
+            // Password Field
+            TextFormField(
+              controller: _passwordController,
+              obscureText: _obscureText,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _login(),
+              decoration: InputDecoration(
+                labelText: 'Password',
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscureText ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                  onPressed: () => setState(() => _obscureText = !_obscureText),
+                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // Login Button
+            ElevatedButton(
+              onPressed: state.isLoading ? null : _login,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: state.isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Masuk', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 40),
+          ],
         ),
       ),
     );
