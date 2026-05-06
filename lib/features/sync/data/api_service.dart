@@ -149,4 +149,21 @@ class ApiService {
       return [];
     }
   }
+
+  /// Download PDF Audit dari server
+  Future<Uint8List?> downloadAuditPdf(String auditId) async {
+    try {
+      final response = await _client.dio.get(
+        '/audit/$auditId/download-pdf',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      
+      if (response.statusCode == 200) {
+        return Uint8List.fromList(response.data as List<int>);
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
 }

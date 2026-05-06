@@ -26,27 +26,30 @@ class _ReportPreviewScreenState extends ConsumerState<ReportPreviewScreen> {
 
     try {
       final AuditModel? audit = await ref.read(auditDetailProvider(widget.auditId).future);
-      final List<AuditPartModel> parts = await ref.read(auditPartsProvider(widget.auditId).future);
-      final List<LivestockSampleModel> samples = await ref.read(auditLivestockSamplesProvider(widget.auditId).future);
-
       if (audit == null) throw Exception('Audit tidak ditemukan');
 
-      // Collect photos for each part
-      final allPhotos = <String, List<dynamic>>{};
-      for (final part in parts) {
-        final photos = await ref.read(partPhotosProvider(part.id).future);
-        allPhotos[part.id] = photos;
+      Uint8List pdfBytes;
+
+      // Jika audit sudah disinkronkan, coba ambil dari server agar lebih profesional (menggunakan template backend)
+      if (audit.synced) {
+        try {
+          final serverPdf = await ref.read(apiServiceProvider).downloadAuditPdf(audit.id);
+          if (serverPdf != null) {
+            pdfBytes = serverPdf;
+          } else {
+            // Fallback ke local jika gagal ambil dari server
+            pdfBytes = await _generateLocalPdf();
+          }
+        } catch (_) {
+          // Fallback ke local jika terjadi error saat download
+          pdfBytes = await _generateLocalPdf();
+        }
+      } else {
+        // Jika belum sinkron, generate lokal saja
+        pdfBytes = await _generateLocalPdf();
       }
 
-      final pdfBytes = await PdfExporter.generateReport(
-        audit: audit,
-        parts: parts,
-        samples: samples,
-        photos: allPhotos,
-      );
-
       // Gunakan Printing.layoutPdf untuk hasil yang lebih stabil di Android/iOS/Web
-      // Ini akan membuka dialog Print/Save native
       await Printing.layoutPdf(
         onLayout: (format) async => pdfBytes,
         name: 'Laporan_Audit_${audit.locationName?.replaceAll(" ", "_") ?? "Export"}.pdf',
@@ -60,6 +63,28 @@ class _ReportPreviewScreenState extends ConsumerState<ReportPreviewScreen> {
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
+  }
+
+  Future<Uint8List> _generateLocalPdf() async {
+    final AuditModel? audit = await ref.read(auditDetailProvider(widget.auditId).future);
+    final List<AuditPartModel> parts = await ref.read(auditPartsProvider(widget.auditId).future);
+    final List<LivestockSampleModel> samples = await ref.read(auditLivestockSamplesProvider(widget.auditId).future);
+
+    if (audit == null) throw Exception('Audit tidak ditemukan');
+
+    // Collect photos for each part
+    final allPhotos = <String, List<dynamic>>{};
+    for (final part in parts) {
+      final photos = await ref.read(partPhotosProvider(part.id).future);
+      allPhotos[part.id] = photos;
+    }
+
+    return await PdfExporter.generateReport(
+      audit: audit,
+      parts: parts,
+      samples: samples,
+      photos: allPhotos,
+    );
   }
 
   @override

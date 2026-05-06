@@ -167,6 +167,17 @@ class _AuditPartScreenState extends ConsumerState<AuditPartScreen> {
               if (widget.partIndex >= parts.length) return const Center(child: Text('Indeks tidak valid'));
               final part = parts[widget.partIndex];
               
+              // Sync local state if provider data changed (e.g. after camera capture)
+              if (_currentPart == null || _currentPart!.id != part.id || _currentPart!.photoIds.length != part.photoIds.length) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() {
+                      _currentPart = part;
+                    });
+                  }
+                });
+              }
+              
               return Consumer(
                 builder: (context, ref, _) {
                   final isLocked = ref.watch(auditDetailProvider(widget.auditId)).valueOrNull?.isLocked ?? false;
@@ -180,7 +191,20 @@ class _AuditPartScreenState extends ConsumerState<AuditPartScreen> {
                         _PartExistsCard(
                           exists: _partExists,
                           isLocked: isLocked,
-                          onChanged: (v) => setState(() => _partExists = v),
+                          onChanged: (v) async {
+                            if (!v) {
+                              // Jika diubah jadi "Tidak Ada", bersihkan foto yang mungkin sudah diambil
+                              final photos = await ref.read(partPhotosProvider(part.id).future);
+                              if (photos.isNotEmpty) {
+                                for (var p in photos) {
+                                  await ref.read(auditRepositoryProvider).deletePhoto(p.id);
+                                }
+                                ref.invalidate(partPhotosProvider(part.id));
+                                ref.invalidate(auditPartsProvider(widget.auditId));
+                              }
+                            }
+                            setState(() => _partExists = v);
+                          },
                         ),
                         
                         const SizedBox(height: 16),
@@ -492,6 +516,7 @@ class _AddPhotoButton extends ConsumerWidget {
         if (res != null) {
           await Future.delayed(const Duration(milliseconds: 300));
           ref.invalidate(partPhotosProvider(partId));
+          ref.invalidate(auditPartsProvider(auditId));
         }
       },
       child: Container(

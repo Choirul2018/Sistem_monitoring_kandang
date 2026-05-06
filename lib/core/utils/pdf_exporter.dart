@@ -218,7 +218,6 @@ class PdfExporter {
                               child: pw.Image(
                                 image,
                                 width: 400,
-                                // Berikan maxHeight agar tidak merusak layout engine jika gambar terlalu tinggi
                                 height: 300,
                                 fit: pw.BoxFit.contain,
                               ),
@@ -244,6 +243,35 @@ class PdfExporter {
             
             allWidgets.add(pw.Divider(color: PdfColors.grey300));
             allWidgets.add(pw.SizedBox(height: 10));
+          }
+
+          // Add Livestock Samples Details if any
+          if (samples.isNotEmpty) {
+            allWidgets.add(pw.SizedBox(height: 20));
+            allWidgets.add(
+              pw.Text(
+                'Detail Sampel Ternak',
+                style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.teal800),
+              ),
+            );
+            allWidgets.add(pw.SizedBox(height: 10));
+
+            for (final sample in samples) {
+              allWidgets.add(
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'Jenis: ${sample.animalType.toUpperCase()} | Status: ${sample.hasDisease ? "BERPENYAKIT" : "SEHAT"}',
+                      style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+                    ),
+                    if (sample.diseaseNotes != null)
+                      pw.Text('Catatan: ${sample.diseaseNotes}', style: const pw.TextStyle(fontSize: 10)),
+                    pw.SizedBox(height: 8),
+                  ],
+                ),
+              );
+            }
           }
 
           return allWidgets;
