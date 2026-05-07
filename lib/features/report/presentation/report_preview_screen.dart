@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
@@ -7,6 +8,7 @@ import '../../audit/presentation/providers/audit_provider.dart';
 import '../../audit/data/audit_model.dart';
 import '../../audit/data/audit_part_model.dart';
 import '../../audit/data/livestock_sample_model.dart';
+import '../../sync/data/api_service.dart';
 import '../../../core/utils/pdf_exporter.dart';
 import '../../../app/theme/app_colors.dart';
 

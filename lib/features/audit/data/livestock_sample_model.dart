@@ -18,7 +18,7 @@ class LivestockSampleModel extends HiveObject {
   final String? diseaseNotes;
 
   @HiveField(5)
-  final List<String> photoIds;
+  List<String> photoIds;
 
   @HiveField(6)
   final DateTime createdAt;
