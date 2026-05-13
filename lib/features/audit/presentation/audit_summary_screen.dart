@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'providers/audit_provider.dart';
 import '../data/audit_part_model.dart';
-import '../data/livestock_sample_model.dart';
+import '../data/inspection_model.dart';
 import '../data/audit_model.dart';
 import '../../../app/theme/app_colors.dart';
 
@@ -66,7 +66,7 @@ class _AuditSummaryScreenState extends ConsumerState<AuditSummaryScreen> {
     final auditId = widget.auditId;
     final auditAsync = ref.watch(auditDetailProvider(auditId));
     final partsAsync = ref.watch(auditPartsProvider(auditId));
-    final samplesAsync = ref.watch(auditLivestockSamplesProvider(auditId));
+    final samplesAsync = ref.watch(auditInspectionsProvider(auditId));
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -194,34 +194,34 @@ class _AuditSummaryScreenState extends ConsumerState<AuditSummaryScreen> {
 
                     const SizedBox(height: 24),
 
-                    // ─── Livestock Samples Section ───
+                    // ─── Inspections Section ───
                     Row(
                       children: [
                         Expanded(
-                          child: Text('Sampel Hewan', style: Theme.of(context).textTheme.titleMedium),
+                          child: Text('Hasil Inspeksi Unit', style: Theme.of(context).textTheme.titleMedium),
                         ),
                         TextButton.icon(
-                          onPressed: () => context.push('/audit/$auditId/livestock'),
+                          onPressed: () => context.push('/audit/$auditId/inspection'),
                           icon: const Icon(Icons.add_rounded, size: 18),
-                          label: const Text('Kelola Sampel'),
+                          label: const Text('Kelola Inspeksi'),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     samplesAsync.when(
                       loading: () => const Center(child: CircularProgressIndicator()),
-                      error: (e, _) => Text('Error loading samples: $e'),
+                      error: (e, _) => Text('Error loading inspections: $e'),
                       data: (samples) {
                         if (samples.isEmpty) {
                           return _EmptyActionCard(
-                            icon: Icons.pets_rounded,
-                            message: 'Belum ada sampel hewan diambil',
-                            buttonLabel: 'Ambil Sampel Hewan',
-                            onTap: () => context.push('/audit/$auditId/livestock'),
+                            icon: Icons.inventory_2_outlined,
+                            message: 'Belum ada inspeksi unit diambil',
+                            buttonLabel: 'Lakukan Inspeksi Unit',
+                            onTap: () => context.push('/audit/$auditId/inspection'),
                           );
                         }
                         return Column(
-                          children: samples.map((s) => _LivestockSummaryItem(sample: s)).toList(),
+                          children: samples.map((s) => _InspectionSummaryItem(sample: s)).toList(),
                         );
                       },
                     ),
@@ -292,7 +292,7 @@ class _AuditSummaryScreenState extends ConsumerState<AuditSummaryScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Wajib mengambil minimal satu sampel hewan sebelum mengirim.',
+                              'Wajib mengambil minimal satu inspeksi unit sebelum mengirim.',
                               style: TextStyle(color: AppColors.error, fontSize: 12, fontWeight: FontWeight.w500),
                             ),
                           ),
@@ -447,39 +447,55 @@ class _PartSummaryCard extends StatelessWidget {
                 ],
               ),
             ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LivestockSummaryItem extends StatelessWidget {
-  final LivestockSampleModel sample;
-  const _LivestockSummaryItem({required this.sample});
-
+          ]class _InspectionSummaryItem extends StatelessWidget {
+  final InspectionModel sample;
+  const _InspectionSummaryItem({required this.sample});
+ 
   @override
   Widget build(BuildContext context) {
+    IconData getIcon() {
+      switch (sample.category) {
+        case 'infrastructure': return Icons.business_rounded;
+        case 'safety': return Icons.security_rounded;
+        case 'utility': return Icons.settings_input_component_rounded;
+        default: return Icons.inventory_2_outlined;
+      }
+    }
+ 
+    String getLabel() {
+      switch (sample.category) {
+        case 'infrastructure': return 'Infrastruktur';
+        case 'safety': return 'Keamanan';
+        case 'utility': return 'Utilitas';
+        default: return sample.category.toUpperCase();
+      }
+    }
+ 
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
       child: ListTile(
         dense: true,
         leading: Icon(
-          sample.animalType == 'ayam' ? Icons.egg_rounded : Icons.waves_rounded,
+          getIcon(),
           color: AppColors.primary,
           size: 20,
         ),
         title: Text(
-          '${sample.animalType.toUpperCase()} - ${sample.hasDisease ? 'Ada Penyakit' : 'Sehat'}',
+          '${getLabel()} - ${sample.isDefective ? 'Ada Masalah' : 'Normal'}',
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
         ),
-        subtitle: sample.diseaseNotes != null
-            ? Text(sample.diseaseNotes!, style: const TextStyle(fontSize: 11))
+        subtitle: sample.issueDetails != null
+            ? Text(sample.issueDetails!, style: const TextStyle(fontSize: 11))
             : null,
         trailing: Icon(
-          sample.hasDisease ? Icons.error_rounded : Icons.check_circle_rounded,
-          color: sample.hasDisease ? AppColors.error : AppColors.success,
+          sample.isDefective ? Icons.error_rounded : Icons.check_circle_rounded,
+          color: sample.isDefective ? AppColors.error : AppColors.success,
           size: 18,
+        ),
+      ),
+    );
+  }
+}18,
         ),
       ),
     );

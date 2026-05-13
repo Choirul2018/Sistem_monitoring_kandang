@@ -7,7 +7,7 @@ import '../../../core/network/api_client.dart';
 import '../../audit/data/audit_model.dart';
 import '../../audit/data/audit_part_model.dart';
 import '../../audit/data/photo_model.dart';
-import '../../audit/data/livestock_sample_model.dart';
+import '../../audit/data/inspection_model.dart';
 
 final apiServiceProvider = Provider<ApiService>((ref) {
   return ApiService(ref.read(apiClientProvider));
@@ -23,7 +23,7 @@ class ApiService {
     required AuditModel audit,
     required List<AuditPartModel> parts,
     required List<PhotoModel> photos,
-    required List<LivestockSampleModel> samples,
+    required List<InspectionModel> inspections,
   }) async {
     try {
       // 1. Siapkan data parts dengan nested photos info
@@ -64,14 +64,14 @@ class ApiService {
         partsWithPhotos.add(partJson);
       }
 
-      // 1.1 Siapkan data samples dan kumpulkan foto terkait
-      final List<Map<String, dynamic>> samplesWithPhotos = [];
-      for (var sample in samples) {
-        final sampleJson = sample.toJson();
-        final samplePhotos = photos.where((p) => p.auditPartId == sample.id).toList();
+      // 1.1 Siapkan data inspections dan kumpulkan foto terkait
+      final List<Map<String, dynamic>> inspectionsWithPhotos = [];
+      for (var inspection in inspections) {
+        final inspectionJson = inspection.toJson();
+        final inspectionPhotos = photos.where((p) => p.auditPartId == inspection.id).toList();
         
         final List<Map<String, dynamic>> photoInfos = [];
-        for (var photo in samplePhotos) {
+        for (var photo in inspectionPhotos) {
           final uploadKey = 'photo_${photo.id}';
           photoInfos.add({
             ...photo.toJson(),
@@ -86,15 +86,15 @@ class ApiService {
             );
           }
         }
-        sampleJson['photos'] = photoInfos;
-        samplesWithPhotos.add(sampleJson);
+        inspectionJson['photos'] = photoInfos;
+        inspectionsWithPhotos.add(inspectionJson);
       }
 
       // 2. Siapkan Payload Utama
       // Laravel AuditSyncController mengharapkan 'audit', 'parts', dan 'samples' sebagai JSON string
       formDataMap['audit'] = jsonEncode(audit.toJson());
       formDataMap['parts'] = jsonEncode(partsWithPhotos);
-      formDataMap['samples'] = jsonEncode(samplesWithPhotos);
+      formDataMap['inspections'] = jsonEncode(inspectionsWithPhotos);
 
       final formData = FormData.fromMap(formDataMap);
 

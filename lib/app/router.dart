@@ -8,7 +8,7 @@ import '../features/audit/presentation/audit_part_screen.dart';
 import '../features/audit/presentation/camera_capture_screen.dart';
 import '../features/audit/presentation/audit_summary_screen.dart';
 import '../features/audit/presentation/signature_screen.dart';
-import '../features/audit/presentation/livestock_sampling_screen.dart';
+import '../features/audit/presentation/inspection_screen.dart';
 import '../features/location/presentation/location_list_screen.dart';
 import '../features/location/presentation/location_map_screen.dart';
 import '../features/report/presentation/report_screen.dart';
@@ -101,8 +101,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
-        path: '/audit/:id/livestock',
-        builder: (context, state) => LivestockSamplingScreen(
+        path: '/audit/:id/inspection',
+        builder: (context, state) => InspectionScreen(
           auditId: state.pathParameters['id']!,
         ),
       ),

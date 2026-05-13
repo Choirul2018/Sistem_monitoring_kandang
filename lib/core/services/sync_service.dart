@@ -60,31 +60,31 @@ class SyncService {
         try {
           // Cari bagian dan foto terkait audit ini
           final parts = HiveService.auditParts.values.where((p) => p.auditId == audit.id).toList();
-          final samples = HiveService.livestockSamples.values.where((s) => s.auditId == audit.id).toList();
+          final inspections = HiveService.inspections.values.where((s) => s.auditId == audit.id).toList();
           
           final partIds = parts.map((p) => p.id).toSet();
-          final sampleIds = samples.map((s) => s.id).toSet();
+          final inspectionIds = inspections.map((s) => s.id).toSet();
 
-          // Ambil semua foto yang terkait dengan bagian audit ATAU sampel ternak
+          // Ambil semua foto yang terkait dengan bagian audit ATAU inspeksi
           final photos = HiveService.photos.values
-              .where((ph) => partIds.contains(ph.auditPartId) || sampleIds.contains(ph.auditPartId))
+              .where((ph) => partIds.contains(ph.auditPartId) || inspectionIds.contains(ph.auditPartId))
               .toList();
 
           final success = await _apiService.sendAuditToLaravel(
             audit: audit,
             parts: parts,
             photos: photos,
-            samples: samples,
+            inspections: inspections,
           );
 
           if (success) {
             audit.synced = true;
             await HiveService.audits.put(audit.id, audit);
             
-            // Tandai bagian, foto, dan sampel sebagai tersinkronisasi juga
+            // Tandai bagian, foto, dan inspeksi sebagai tersinkronisasi juga
             for (var p in parts) { p.synced = true; await HiveService.auditParts.put(p.id, p); }
             for (var ph in photos) { ph.synced = true; await HiveService.photos.put(ph.id, ph); }
-            for (var s in samples) { s.synced = true; await HiveService.livestockSamples.put(s.id, s); }
+            for (var s in inspections) { s.synced = true; await HiveService.inspections.put(s.id, s); }
             
             synced++;
           } else {

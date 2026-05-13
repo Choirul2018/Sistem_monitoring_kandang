@@ -7,13 +7,13 @@ import 'package:printing/printing.dart';
 import '../../features/audit/data/audit_model.dart';
 import '../../features/audit/data/audit_part_model.dart';
 import '../../features/audit/data/photo_model.dart';
-import '../../features/audit/data/livestock_sample_model.dart';
+import '../../features/audit/data/inspection_model.dart';
 
 class PdfExporter {
   static Future<Uint8List> generateReport({
     required AuditModel audit,
     required List<AuditPartModel> parts,
-    required List<LivestockSampleModel> samples,
+    required List<InspectionModel> samples,
     required Map<String, List<dynamic>> photos,
   }) async {
     final pdf = pw.Document();
@@ -40,7 +40,7 @@ class PdfExporter {
               ),
               pw.Center(
                 child: pw.Text(
-                  'Sistem Monitoring Kandang',
+                  'Business Monitoring System',
                   style: pw.TextStyle(fontSize: 14, color: PdfColors.grey600),
                 ),
               ),
@@ -60,7 +60,7 @@ class PdfExporter {
               pw.Divider(color: PdfColors.grey300),
               pw.SizedBox(height: 20),
               pw.Text(
-                'Laporan ini digenerate secara otomatis oleh Sistem Monitoring Kandang.',
+                'Laporan ini digenerate secara otomatis oleh Business Monitoring System.',
                 style: pw.TextStyle(fontSize: 10, color: PdfColors.grey500),
               ),
             ],
@@ -106,7 +106,7 @@ class PdfExporter {
       ),
     );
 
-    // ─── Livestock Samples Table ───
+    // ─── Inspections Table ───
     if (samples.isNotEmpty) {
       pdf.addPage(
         pw.Page(
@@ -117,7 +117,7 @@ class PdfExporter {
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 pw.Text(
-                  'Data Sampel Ternak',
+                  'Data Hasil Inspeksi Unit',
                   style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
                 ),
                 pw.SizedBox(height: 16),
@@ -126,14 +126,14 @@ class PdfExporter {
                   cellStyle: const pw.TextStyle(fontSize: 10),
                   headerDecoration: const pw.BoxDecoration(color: PdfColors.teal50),
                   cellPadding: const pw.EdgeInsets.all(6),
-                  headers: ['No', 'Jenis Hewan', 'Status', 'Catatan'],
+                  headers: ['No', 'Kategori', 'Status', 'Catatan'],
                   data: List.generate(samples.length, (index) {
                     final s = samples[index];
                     return [
                       '${index + 1}',
-                      s.animalType.toUpperCase(),
-                      s.hasDisease ? 'ADA PENYAKIT' : 'SEHAT',
-                      s.diseaseNotes ?? '-',
+                      s.category.toUpperCase(),
+                      s.isDefective ? 'ADA TEMUAN' : 'NORMAL',
+                      s.issueDetails ?? '-',
                     ];
                   }),
                 ),
@@ -245,28 +245,28 @@ class PdfExporter {
             allWidgets.add(pw.SizedBox(height: 10));
           }
 
-          // Add Livestock Samples Details if any
+          // Add Inspections Details if any
           if (samples.isNotEmpty) {
             allWidgets.add(pw.SizedBox(height: 20));
             allWidgets.add(
               pw.Text(
-                'Detail Sampel Ternak',
+                'Detail Hasil Inspeksi',
                 style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColors.teal800),
               ),
             );
             allWidgets.add(pw.SizedBox(height: 10));
-
+ 
             for (final sample in samples) {
               allWidgets.add(
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'Jenis: ${sample.animalType.toUpperCase()} | Status: ${sample.hasDisease ? "BERPENYAKIT" : "SEHAT"}',
+                      'Kategori: ${sample.category.toUpperCase()} | Status: ${sample.isDefective ? "ADA TEMUAN" : "NORMAL"}',
                       style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
                     ),
-                    if (sample.diseaseNotes != null)
-                      pw.Text('Catatan: ${sample.diseaseNotes}', style: const pw.TextStyle(fontSize: 10)),
+                    if (sample.issueDetails != null)
+                      pw.Text('Catatan: ${sample.issueDetails}', style: const pw.TextStyle(fontSize: 10)),
                     pw.SizedBox(height: 8),
                   ],
                 ),

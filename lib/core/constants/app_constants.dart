@@ -2,7 +2,7 @@ class AppConstants {
   AppConstants._();
 
   // ─── App Info ───
-  static const String appName = 'Monitoring Kandang';
+  static const String appName = 'Business Monitoring System';
   static const String appVersion = '1.0.0';
 
   // ─── Geofencing ───
@@ -33,14 +33,14 @@ class AppConstants {
 
   // ─── Audit Parts (Default Order) ───
   static const List<String> defaultAuditParts = [
-    'Gerbang',
-    'Jalan Masuk',
-    'Area Kantor/Pos',
-    'Gudang',
-    'Tempat Pakan',
-    'Tempat Minum',
-    'Kandang 1',
-    'Kandang 2',
+    'Area Parkir & Gerbang',
+    'Lobby / Resepsionis',
+    'Area Kantor',
+    'Gudang Inventaris',
+    'Ruang Utilitas / ME',
+    'Area Produksi / Kerja 1',
+    'Area Produksi / Kerja 2',
+    'Fasilitas Umum / Toilet',
   ];
 
   // ─── Condition Options ───

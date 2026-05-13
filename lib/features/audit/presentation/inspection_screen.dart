@@ -5,44 +5,44 @@ import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 import 'package:sistem_monitoring_kandang/features/audit/data/photo_model.dart';
 import 'package:sistem_monitoring_kandang/features/audit/presentation/providers/audit_provider.dart';
-import 'package:sistem_monitoring_kandang/features/audit/data/livestock_sample_model.dart';
+import 'package:sistem_monitoring_kandang/features/audit/data/inspection_model.dart';
 import 'package:sistem_monitoring_kandang/app/theme/app_colors.dart';
 import 'package:sistem_monitoring_kandang/local_db/hive_service.dart';
 import 'package:sistem_monitoring_kandang/features/audit/presentation/camera_capture_screen.dart';
 
-class LivestockSamplingScreen extends ConsumerStatefulWidget {
+class InspectionScreen extends ConsumerStatefulWidget {
   final String auditId;
-  const LivestockSamplingScreen({super.key, required this.auditId});
+  const InspectionScreen({super.key, required this.auditId});
 
   @override
-  ConsumerState<LivestockSamplingScreen> createState() =>
-      _LivestockSamplingScreenState();
+  ConsumerState<InspectionScreen> createState() =>
+      _InspectionScreenState();
 }
 
-class _LivestockSamplingScreenState
-    extends ConsumerState<LivestockSamplingScreen> {
+class _InspectionScreenState
+    extends ConsumerState<InspectionScreen> {
   final _uuid = const Uuid();
 
-  Future<void> _openForm([LivestockSampleModel? existing]) async {
+  Future<void> _openForm([InspectionModel? existing]) async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) => _SampleFormScreen(
+        builder: (_) => _InspectionFormScreen(
           auditId: widget.auditId,
           sampleId: existing?.id ?? _uuid.v4(),
           existing: existing,
         ),
       ),
     );
-    ref.invalidate(auditLivestockSamplesProvider(widget.auditId));
+    ref.invalidate(auditInspectionsProvider(widget.auditId));
   }
 
-  Future<void> _deleteSample(LivestockSampleModel sample) async {
+  Future<void> _deleteInspection(InspectionModel sample) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Hapus Sampel?'),
-        content: const Text('Data sampel dan foto terkait akan dihapus.'),
+        title: const Text('Hapus Inspeksi?'),
+        content: const Text('Data inspeksi dan foto terkait akan dihapus.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
           TextButton(
@@ -56,17 +56,17 @@ class _LivestockSamplingScreenState
       for (final id in sample.photoIds) {
         await ref.read(auditRepositoryProvider).deletePhoto(id);
       }
-      await ref.read(auditRepositoryProvider).deleteLivestockSample(sample.id);
-      ref.invalidate(auditLivestockSamplesProvider(widget.auditId));
+      await ref.read(auditRepositoryProvider).deleteInspection(sample.id);
+      ref.invalidate(auditInspectionsProvider(widget.auditId));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final samplesAsync = ref.watch(auditLivestockSamplesProvider(widget.auditId));
+    final samplesAsync = ref.watch(auditInspectionsProvider(widget.auditId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Sampel Ternak')),
+      appBar: AppBar(title: const Text('Inspeksi Unit')),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _openForm(),
         backgroundColor: AppColors.primary,
@@ -84,7 +84,7 @@ class _LivestockSamplingScreenState
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Selesai Sampling'),
+              child: const Text('Selesai Inspeksi'),
             ),
           ),
         ),
@@ -93,14 +93,14 @@ class _LivestockSamplingScreenState
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (samples) {
-          if (samples.isEmpty) return const _EmptySamplesView();
+          if (samples.isEmpty) return const _EmptyInspectionsView();
           return ListView.builder(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
             itemCount: samples.length,
-            itemBuilder: (_, i) => _SampleCard(
+            itemBuilder: (_, i) => _InspectionCard(
               sample: samples[i],
               onEdit: () => _openForm(samples[i]),
-              onDelete: () => _deleteSample(samples[i]),
+              onDelete: () => _deleteInspection(samples[i]),
             ),
           );
         },
@@ -120,45 +120,41 @@ class _KeyboardSensitiveBottomBar extends StatelessWidget {
   }
 }
 
-class _EmptySamplesView extends StatelessWidget {
-  const _EmptySamplesView();
+class _EmptyInspectionsView extends StatelessWidget {
+  const _EmptyInspectionsView();
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.pets_rounded, size: 64, color: AppColors.textTertiary),
+          const Icon(Icons.inventory_2_outlined, size: 64, color: AppColors.textTertiary),
           const SizedBox(height: 16),
-          const Text('Belum ada sampel ternak didokumentasikan'),
+          const Text('Belum ada inspeksi unit didokumentasikan'),
         ],
       ),
     );
   }
 }
 
-// ════════════════════════════════════════════════════════════════
-// FORM SCREEN — OPTIMIZED UNTUK PERFORMANCE KEYBOARD (PHASE 3)
-// ════════════════════════════════════════════════════════════════
-
-class _SampleFormScreen extends StatefulWidget {
+class _InspectionFormScreen extends StatefulWidget {
   final String auditId;
   final String sampleId;
-  final LivestockSampleModel? existing;
+  final InspectionModel? existing;
 
-  const _SampleFormScreen({
+  const _InspectionFormScreen({
     required this.auditId,
     required this.sampleId,
     this.existing,
   });
 
   @override
-  State<_SampleFormScreen> createState() => _SampleFormScreenState();
+  State<_InspectionFormScreen> createState() => _InspectionFormScreenState();
 }
 
-class _SampleFormScreenState extends State<_SampleFormScreen> {
-  late String _type;
-  late bool _hasDisease;
+class _InspectionFormScreenState extends State<_InspectionFormScreen> {
+  late String _category;
+  late bool _isDefective;
   final _notesFocus = FocusNode();
   final _notesController = TextEditingController();
   final _scrollController = ScrollController();
@@ -168,9 +164,9 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
   @override
   void initState() {
     super.initState();
-    _type = widget.existing?.animalType ?? 'ayam';
-    _hasDisease = widget.existing?.hasDisease ?? false;
-    _notesController.text = widget.existing?.diseaseNotes ?? '';
+    _category = widget.existing?.category ?? 'infrastructure';
+    _isDefective = widget.existing?.isDefective ?? false;
+    _notesController.text = widget.existing?.issueDetails ?? '';
     _photosNotifier = ValueNotifier<List<PhotoModel>>(_loadPhotosSync());
   }
 
@@ -229,27 +225,26 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
     FocusScope.of(context).unfocus();
     setState(() => _isSaving = true);
 
-    final sample = LivestockSampleModel(
+    final sample = InspectionModel(
       id: widget.sampleId,
       auditId: widget.auditId,
-      animalType: _type,
-      hasDisease: _hasDisease,
-      diseaseNotes: _hasDisease ? _notesController.text.trim() : null,
+      category: _category,
+      isDefective: _isDefective,
+      issueDetails: _isDefective ? _notesController.text.trim() : null,
       photoIds: _photosNotifier.value.map((p) => p.id).toList(),
       createdAt: widget.existing?.createdAt ?? DateTime.now(),
     );
 
-    await HiveService.livestockSamples.put(sample.id, sample);
+    await HiveService.inspections.put(sample.id, sample);
     if (mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // KEMBALI KE STANDAR
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
-        title: Text(widget.existing != null ? 'Edit Sampel' : 'Tambah Sampel'),
+        title: Text(widget.existing != null ? 'Edit Inspeksi' : 'Tambah Inspeksi'),
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
           onPressed: () => Navigator.pop(context),
@@ -268,33 +263,33 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Jenis Hewan ──
-            const Text('Jenis Hewan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const Text('Kategori Unit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             const SizedBox(height: 12),
-            Row(
+            Column(
               children: [
-                Expanded(
-                  child: _TypeTile(
-                    label: 'Ayam', icon: Icons.pets_rounded, 
-                    selected: _type == 'ayam', 
-                    onTap: () => setState(() => _type = 'ayam')
-                  ),
+                _CategoryTile(
+                  label: 'Infrastruktur', icon: Icons.business_rounded, 
+                  selected: _category == 'infrastructure', 
+                  onTap: () => setState(() => _category = 'infrastructure')
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _TypeTile(
-                    label: 'Bebek', icon: Icons.water_rounded, 
-                    selected: _type == 'bebek', 
-                    onTap: () => setState(() => _type = 'bebek')
-                  ),
+                const SizedBox(height: 8),
+                _CategoryTile(
+                  label: 'Keamanan / Safety', icon: Icons.security_rounded, 
+                  selected: _category == 'safety', 
+                  onTap: () => setState(() => _category = 'safety')
+                ),
+                const SizedBox(height: 8),
+                _CategoryTile(
+                  label: 'Utilitas / ME', icon: Icons.settings_input_component_rounded, 
+                  selected: _category == 'utility', 
+                  onTap: () => setState(() => _category = 'utility')
                 ),
               ],
             ),
       
             const SizedBox(height: 24),
       
-            // ── Status Kesehatan ──
-            const Text('Status Kesehatan', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            const Text('Status Kondisi', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
             const SizedBox(height: 12),
             Card(
               margin: EdgeInsets.zero,
@@ -305,25 +300,24 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
               ),
               child: SwitchListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                title: const Text('Terdeteksi Penyakit?', style: TextStyle(fontSize: 14)),
-                subtitle: Text(_hasDisease ? 'Ada gejala penyakit' : 'Kondisi sehat', style: const TextStyle(fontSize: 12)),
-                value: _hasDisease,
+                title: const Text('Ditemukan Masalah?', style: TextStyle(fontSize: 14)),
+                subtitle: Text(_isDefective ? 'Ada masalah/temuan' : 'Kondisi normal', style: const TextStyle(fontSize: 12)),
+                value: _isDefective,
                 activeThumbColor: AppColors.error,
-                onChanged: (v) => setState(() => _hasDisease = v),
+                onChanged: (v) => setState(() => _isDefective = v),
               ),
             ),
       
-            if (_hasDisease) ...[
+            if (_isDefective) ...[
               const SizedBox(height: 16),
-              // Isolasi cursor animation
               RepaintBoundary(
                 child: TextField(
                   controller: _notesController,
                   focusNode: _notesFocus,
                   maxLines: 4,
                   decoration: const InputDecoration(
-                    labelText: 'Catatan Penyakit',
-                    hintText: 'Tuliskan gejala...',
+                    labelText: 'Detail Masalah',
+                    hintText: 'Tuliskan temuan masalah...',
                     border: OutlineInputBorder(),
                   ),
                   scrollPadding: EdgeInsets.zero,
@@ -333,7 +327,6 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
       
             const SizedBox(height: 20),
       
-            // FOTO SECTION (Selalu tampilkan agar tidak ada beban rebuild)
             RepaintBoundary(
               child: _PhotoGridSection(
                 notifier: _photosNotifier,
@@ -350,36 +343,13 @@ class _SampleFormScreenState extends State<_SampleFormScreen> {
   }
 }
 
-class _KeyboardPlaceholder extends StatelessWidget {
-  const _KeyboardPlaceholder();
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceVariant.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.image_outlined, color: AppColors.textTertiary),
-          SizedBox(width: 12),
-          Text('Foto disembunyikan agar mengetik lebih lancar...', 
-               style: TextStyle(fontSize: 12, color: AppColors.textTertiary, fontStyle: FontStyle.italic)),
-        ],
-      ),
-    );
-  }
-}
-
-class _TypeTile extends StatelessWidget {
+class _CategoryTile extends StatelessWidget {
   final String label;
   final IconData icon;
   final bool selected;
   final VoidCallback onTap;
 
-  const _TypeTile({required this.label, required this.icon, required this.selected, required this.onTap});
+  const _CategoryTile({required this.label, required this.icon, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -387,17 +357,20 @@ class _TypeTile extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
         decoration: BoxDecoration(
           color: selected ? AppColors.primary.withValues(alpha: 0.08) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: selected ? AppColors.primary : AppColors.divider, width: 2),
         ),
-        child: Column(
+        child: Row(
           children: [
             Icon(icon, color: selected ? AppColors.primary : AppColors.textTertiary, size: 24),
-            const SizedBox(height: 4),
+            const SizedBox(width: 12),
             Text(label, style: TextStyle(color: selected ? AppColors.primary : null, fontWeight: selected ? FontWeight.bold : null)),
+            const Spacer(),
+            if (selected) const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 20),
           ],
         ),
       ),
@@ -492,15 +465,33 @@ class _PhotoThumbnail extends StatelessWidget {
   }
 }
 
-class _SampleCard extends StatelessWidget {
-  final LivestockSampleModel sample;
+class _InspectionCard extends StatelessWidget {
+  final InspectionModel sample;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
-  const _SampleCard({required this.sample, required this.onEdit, required this.onDelete});
+  const _InspectionCard({required this.sample, required this.onEdit, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
+    IconData getIcon() {
+      switch (sample.category) {
+        case 'infrastructure': return Icons.business_rounded;
+        case 'safety': return Icons.security_rounded;
+        case 'utility': return Icons.settings_input_component_rounded;
+        default: return Icons.inventory_2_outlined;
+      }
+    }
+
+    String getLabel() {
+      switch (sample.category) {
+        case 'infrastructure': return 'Infrastruktur';
+        case 'safety': return 'Keamanan';
+        case 'utility': return 'Utilitas';
+        default: return sample.category.toUpperCase();
+      }
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
@@ -515,16 +506,16 @@ class _SampleCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(sample.animalType == 'ayam' ? Icons.egg_rounded : Icons.waves_rounded, color: AppColors.primary),
+                Icon(getIcon(), color: AppColors.primary),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(sample.animalType.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text(getLabel(), style: const TextStyle(fontWeight: FontWeight.bold)),
                 ),
                 IconButton(icon: const Icon(Icons.edit_rounded, size: 18), onPressed: onEdit),
                 IconButton(icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.error), onPressed: onDelete),
               ],
             ),
-            if (sample.hasDisease && sample.diseaseNotes != null && sample.diseaseNotes!.isNotEmpty) ...[
+            if (sample.isDefective && sample.issueDetails != null && sample.issueDetails!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
@@ -534,7 +525,7 @@ class _SampleCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Catatan: ${sample.diseaseNotes}',
+                  'Temuan: ${sample.issueDetails}',
                   style: const TextStyle(fontSize: 12, color: AppColors.error),
                 ),
               ),

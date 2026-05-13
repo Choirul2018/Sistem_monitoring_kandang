@@ -1,10 +1,10 @@
-# Sistem Monitoring Kandang
+# Business Monitoring System
 
 Aplikasi monitoring dan audit kandang berbasis Flutter dengan pendekatan *offline-first* menggunakan Hive dan Supabase.
 
 ## Alur Program (Workflow)
 
-Berikut adalah ringkasan alur penggunaan aplikasi Sistem Monitoring Kandang:
+Berikut adalah ringkasan alur penggunaan aplikasi Business Monitoring System:
 
 ### 1. Autentikasi & Dashboard
 *   **Login**: Pengguna masuk menggunakan akun Auditor atau Admin.

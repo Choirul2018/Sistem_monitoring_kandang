@@ -7,7 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../audit/presentation/providers/audit_provider.dart';
 import '../../audit/data/audit_model.dart';
 import '../../audit/data/audit_part_model.dart';
-import '../../audit/data/livestock_sample_model.dart';
+import '../../audit/data/inspection_model.dart';
 import '../../sync/data/api_service.dart';
 import '../../../core/utils/pdf_exporter.dart';
 import '../../../app/theme/app_colors.dart';
@@ -70,7 +70,7 @@ class _ReportPreviewScreenState extends ConsumerState<ReportPreviewScreen> {
   Future<Uint8List> _generateLocalPdf() async {
     final AuditModel? audit = await ref.read(auditDetailProvider(widget.auditId).future);
     final List<AuditPartModel> parts = await ref.read(auditPartsProvider(widget.auditId).future);
-    final List<LivestockSampleModel> samples = await ref.read(auditLivestockSamplesProvider(widget.auditId).future);
+    final List<InspectionModel> samples = await ref.read(auditInspectionsProvider(widget.auditId).future);
 
     if (audit == null) throw Exception('Audit tidak ditemukan');
 
@@ -242,11 +242,11 @@ class _ReportPreviewScreenState extends ConsumerState<ReportPreviewScreen> {
 
                     const SizedBox(height: 20),
 
-                    // Livestock samples preview
-                    Text('Sampel Ternak', style: Theme.of(context).textTheme.titleMedium),
-                    ref.watch(auditLivestockSamplesProvider(widget.auditId)).when(
+                    // Inspections preview
+                    Text('Hasil Inspeksi Unit', style: Theme.of(context).textTheme.titleMedium),
+                    ref.watch(auditInspectionsProvider(widget.auditId)).when(
                       data: (samples) => Column(
-                        children: samples.map((s) => _LivestockItem(sample: s)).toList(),
+                        children: samples.map((s) => _InspectionPreviewItem(sample: s)).toList(),
                       ),
                       loading: () => const Center(child: CircularProgressIndicator()),
                       error: (e, _) => Text('Error: $e'),
@@ -297,12 +297,30 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-class _LivestockItem extends StatelessWidget {
-  final LivestockSampleModel sample;
-  const _LivestockItem({required this.sample});
-
+class _InspectionPreviewItem extends StatelessWidget {
+  final InspectionModel sample;
+  const _InspectionPreviewItem({required this.sample});
+ 
   @override
   Widget build(BuildContext context) {
+    IconData getIcon() {
+      switch (sample.category) {
+        case 'infrastructure': return Icons.business_rounded;
+        case 'safety': return Icons.security_rounded;
+        case 'utility': return Icons.settings_input_component_rounded;
+        default: return Icons.inventory_2_outlined;
+      }
+    }
+ 
+    String getLabel() {
+      switch (sample.category) {
+        case 'infrastructure': return 'Infrastruktur';
+        case 'safety': return 'Keamanan';
+        case 'utility': return 'Utilitas';
+        default: return sample.category.toUpperCase();
+      }
+    }
+ 
     return Container(
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(12),
@@ -313,18 +331,18 @@ class _LivestockItem extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            sample.animalType == 'ayam' ? Icons.egg_rounded : Icons.waves_rounded,
+            getIcon(),
             size: 18,
             color: AppColors.primary,
           ),
           const SizedBox(width: 8),
-          Text(sample.animalType.toUpperCase(),
+          Text(getLabel(),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           const Spacer(),
           Text(
-            sample.hasDisease ? 'BERPENYAKIT' : 'SEHAT',
+            sample.isDefective ? 'ADA TEMUAN' : 'NORMAL',
             style: TextStyle(
-              color: sample.hasDisease ? AppColors.error : AppColors.success,
+              color: sample.isDefective ? AppColors.error : AppColors.success,
               fontWeight: FontWeight.bold,
               fontSize: 11,
             ),

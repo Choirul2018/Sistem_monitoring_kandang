@@ -90,15 +90,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           children: [
             const SizedBox(height: 60),
             // Logo or Icon
-            Icon(
-              Icons.assignment_turned_in_rounded,
-              size: 80,
-              color: AppColors.primary,
+            Image.asset(
+              'assets/images/duck_teal.png',
+              height: 120,
+              errorBuilder: (context, error, stackTrace) => Icon(
+                Icons.assignment_turned_in_rounded,
+                size: 80,
+                color: AppColors.primary,
+              ),
             ),
             const SizedBox(height: 24),
             
             Text(
-              'Sistem Monitoring\nKandang',
+              'Business Monitoring\nSystem',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.w800,

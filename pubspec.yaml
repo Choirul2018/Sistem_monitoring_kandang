@@ -1,5 +1,5 @@
 name: sistem_monitoring_kandang
-description: "Sistem Monitoring Kandang - Audit Application"
+description: "Business Monitoring System - Audit Application"
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -77,7 +77,7 @@ dev_dependencies:
   flutter_launcher_icons: "^0.13.1"
 
 flutter_launcher_icons:
-  android: "launcher_icon"
+  android: true
   ios: true
   image_path: "assets/images/app_logo.png"
   adaptive_icon_background: "#FFFFFF"

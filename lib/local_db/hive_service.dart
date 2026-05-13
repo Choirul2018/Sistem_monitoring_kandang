@@ -11,7 +11,7 @@ import '../features/audit/data/photo_model.dart';
 import '../features/audit/data/photo_model.g.dart';
 import '../features/location/data/location_model.dart';
 import '../features/location/data/location_model.g.dart';
-import '../features/audit/data/livestock_sample_model.dart';
+import '../features/audit/data/inspection_model.dart';
 
 class HiveService {
   static const _encryptionKeyName = 'hive_encryption_key';
@@ -23,7 +23,7 @@ class HiveService {
   static const String auditPartsBox = 'audit_parts';
   static const String photosBox = 'photos';
   static const String locationsBox = 'locations';
-  static const String livestockSamplesBox = 'livestock_samples';
+  static const String inspectionsBox = 'inspections';
   static const String syncQueueBox = 'sync_queue';
   static const String settingsBox = 'settings';
 
@@ -34,7 +34,7 @@ class HiveService {
     Hive.registerAdapter(AuditModelAdapter());
     Hive.registerAdapter(AuditPartModelAdapter());
     Hive.registerAdapter(PhotoModelAdapter());
-    Hive.registerAdapter(LivestockSampleModelAdapter());
+    Hive.registerAdapter(InspectionModelAdapter());
 
     // Get or create encryption key
     final encryptionKey = await _getEncryptionKey();
@@ -50,7 +50,7 @@ class HiveService {
         encryptionCipher: HiveAesCipher(encryptionKey));
     await Hive.openBox<LocationModel>(locationsBox,
         encryptionCipher: HiveAesCipher(encryptionKey));
-    await Hive.openBox<LivestockSampleModel>(livestockSamplesBox,
+    await Hive.openBox<InspectionModel>(inspectionsBox,
         encryptionCipher: HiveAesCipher(encryptionKey));
     await Hive.openBox<Map>(syncQueueBox);
     await Hive.openBox(settingsBox);
@@ -76,7 +76,7 @@ class HiveService {
   static Box<AuditPartModel> get auditParts => Hive.box<AuditPartModel>(auditPartsBox);
   static Box<PhotoModel> get photos => Hive.box<PhotoModel>(photosBox);
   static Box<LocationModel> get locations => Hive.box<LocationModel>(locationsBox);
-  static Box<LivestockSampleModel> get livestockSamples => Hive.box<LivestockSampleModel>(livestockSamplesBox);
+  static Box<InspectionModel> get inspections => Hive.box<InspectionModel>(inspectionsBox);
   static Box<Map> get syncQueue => Hive.box<Map>(syncQueueBox);
   static Box get settings => Hive.box(settingsBox);
 
@@ -86,7 +86,7 @@ class HiveService {
     await audits.clear();
     await auditParts.clear();
     await photos.clear();
-    await livestockSamples.clear();
+    await inspections.clear();
     await locations.clear();
     await syncQueue.clear();
   }

@@ -3,7 +3,7 @@ import 'package:uuid/uuid.dart';
 import 'audit_model.dart';
 import 'audit_part_model.dart';
 import 'photo_model.dart';
-import 'livestock_sample_model.dart';
+import 'inspection_model.dart';
 import '../../../local_db/hive_service.dart';
 
 class AuditRepository {
@@ -116,9 +116,9 @@ class AuditRepository {
       ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
   }
 
-  Future<void> saveLivestockSample(LivestockSampleModel sample) async {
+  Future<void> saveInspection(InspectionModel sample) async {
     sample.synced = false;
-    await HiveService.livestockSamples.put(sample.id, sample);
+    await HiveService.inspections.put(sample.id, sample);
   }
 
   Future<void> deletePhoto(String photoId) async {
@@ -142,7 +142,7 @@ class AuditRepository {
     }
   }
 
-  Future<void> deleteLivestockSample(String sampleId) async {
+  Future<void> deleteInspection(String sampleId) async {
     // Hapus semua foto yang terkait dengan sampel ini
     final photoIds = HiveService.photos.keys
         .where((k) {
@@ -153,11 +153,11 @@ class AuditRepository {
     for (final id in photoIds) {
       await deletePhoto(id as String);
     }
-    await HiveService.livestockSamples.delete(sampleId);
+    await HiveService.inspections.delete(sampleId);
   }
 
-  Future<List<LivestockSampleModel>> getLivestockSamplesForAudit(String auditId) async {
-    return HiveService.livestockSamples.values
+  Future<List<InspectionModel>> getInspectionsForAudit(String auditId) async {
+    return HiveService.inspections.values
         .where((s) => s.auditId == auditId)
         .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
@@ -201,11 +201,11 @@ class AuditRepository {
     }).toList();
     for (final key in photoKeys) await HiveService.photos.delete(key);
 
-    final sampleKeys = HiveService.livestockSamples.keys.where((key) {
-      final sample = HiveService.livestockSamples.get(key);
+    final sampleKeys = HiveService.inspections.keys.where((key) {
+      final sample = HiveService.inspections.get(key);
       return sample != null && sample.auditId == auditId;
     }).toList();
-    for (final key in sampleKeys) await HiveService.livestockSamples.delete(key);
+    for (final key in sampleKeys) await HiveService.inspections.delete(key);
 
     for (final partId in partIds) await HiveService.auditParts.delete(partId);
     await HiveService.audits.delete(auditId);

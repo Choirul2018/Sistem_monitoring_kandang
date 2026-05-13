@@ -14,9 +14,9 @@
     <uses-feature android:name="android.hardware.location.gps" android:required="true"/>
 
     <application
-        android:label="Monitoring Kandang"
+        android:label="Business Monitoring System"
         android:name="${applicationName}"
-        android:icon="@mipmap/launcher_icon"
+        android:icon="@mipmap/ic_launcher"
         android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true">
         <activity

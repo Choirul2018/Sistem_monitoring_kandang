@@ -1,4 +1,4 @@
-# Panduan Sistem Monitoring Kandang (Full Installation & Production)
+# Panduan Business Monitoring System (Full Installation & Production)
 
 Panduan ini mencakup instalasi Backend (Laravel Filament) dan Frontend (Flutter) untuk lingkungan pengembangan maupun produksi.
 

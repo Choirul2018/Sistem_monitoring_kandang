@@ -187,17 +187,17 @@ class _CameraCaptureScreenState extends ConsumerState<CameraCaptureScreen> {
       if (isSampleMode) {
         // Mode Sampel Ternak: gunakan sampleId sebagai auditPartId
         partId = widget.auditPartId!;
-        partName = 'Sampel Ternak';
+        partName = 'Inspeksi Unit';
 
         // Update daftar foto di sampel ternak (Hanya jika sampel sudah tersimpan di Hive)
         final sampleRepo = ref.read(auditRepositoryProvider);
-        final samples = await sampleRepo.getLivestockSamplesForAudit(widget.auditId);
+        final samples = await sampleRepo.getInspectionsForAudit(widget.auditId);
         final sampleIndex = samples.indexWhere((s) => s.id == partId);
         
         if (sampleIndex != -1) {
           final sample = samples[sampleIndex];
           sample.photoIds = [...sample.photoIds, photoId];
-          await sampleRepo.saveLivestockSample(sample);
+          await sampleRepo.saveInspection(sample);
         }
       } else {
         // Mode Bagian Audit: ambil data dari daftar bagian
