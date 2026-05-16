@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.gradle.api.JavaVersion
 
 allprojects {
     repositories {
@@ -28,7 +29,8 @@ subprojects {
         }
     }
     tasks.withType<JavaCompile>().configureEach {
-        options.release.set(17)
+        sourceCompatibility = JavaVersion.VERSION_17.toString()
+        targetCompatibility = JavaVersion.VERSION_17.toString()
     }
 }
 

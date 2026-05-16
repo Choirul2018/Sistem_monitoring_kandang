@@ -459,6 +459,23 @@ class _PhotoThumbnail extends StatelessWidget {
               ),
             ),
           ),
+          // Indikator Sinkronisasi
+          Positioned(
+            bottom: 4,
+            left: 4,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: photo.synced ? AppColors.success.withValues(alpha: 0.8) : AppColors.error.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Icon(
+                photo.synced ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
+                color: Colors.white,
+                size: 8,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -542,9 +559,29 @@ class _InspectionCard extends StatelessWidget {
                   itemBuilder: (_, i) {
                     final p = HiveService.photos.get(sample.photoIds[i]);
                     if (p == null) return const SizedBox.shrink();
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.file(File(p.localPath), width: 60, height: 60, fit: BoxFit.cover, cacheWidth: 120),
+                    return Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(File(p.localPath), width: 60, height: 60, fit: BoxFit.cover, cacheWidth: 120),
+                        ),
+                        Positioned(
+                          bottom: 2,
+                          right: 2,
+                          child: Container(
+                            padding: const EdgeInsets.all(1),
+                            decoration: BoxDecoration(
+                              color: p.synced ? AppColors.success : AppColors.error,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              p.synced ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
+                              color: Colors.white,
+                              size: 8,
+                            ),
+                          ),
+                        ),
+                      ],
                     );
                   },
                 ),

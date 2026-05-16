@@ -585,6 +585,33 @@ class _PhotoThumbnail extends ConsumerWidget {
                 ),
               ),
             ),
+          // Indikator Sinkronisasi
+          Positioned(
+            bottom: 4,
+            left: 4,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: photo.synced ? AppColors.success.withValues(alpha: 0.8) : AppColors.error.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    photo.synced ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
+                    color: Colors.white,
+                    size: 10,
+                  ),
+                  const SizedBox(width: 2),
+                  Text(
+                    photo.synced ? 'Synced' : 'Pending',
+                    style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

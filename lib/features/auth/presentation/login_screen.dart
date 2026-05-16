@@ -91,7 +91,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             const SizedBox(height: 60),
             // Logo or Icon
             Image.asset(
-              'assets/images/duck_teal.png',
+              'assets/images/app_logo.png',
               height: 120,
               errorBuilder: (context, error, stackTrace) => Icon(
                 Icons.assignment_turned_in_rounded,

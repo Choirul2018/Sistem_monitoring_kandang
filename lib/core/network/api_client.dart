@@ -14,7 +14,7 @@ class ApiClient {
   // ---------------------------------------------------------
   // static const String baseUrl = 'http://localhost:8000/api'; 
   // static const String baseUrl = 'http://10.0.2.2:8000/api'; // Emulator
-  static const String baseUrl = 'http://10.172.121.75:8000/api'; // HP Fisik
+  static const String baseUrl = 'http://10.172.121.152:8080/api'; // HP Fisik
 
   ApiClient() {
     dio = Dio(

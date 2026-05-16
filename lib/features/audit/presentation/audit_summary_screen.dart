@@ -447,30 +447,45 @@ class _PartSummaryCard extends StatelessWidget {
                 ],
               ),
             ],
-          ]class _InspectionSummaryItem extends StatelessWidget {
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _InspectionSummaryItem extends StatelessWidget {
   final InspectionModel sample;
   const _InspectionSummaryItem({required this.sample});
- 
+
   @override
   Widget build(BuildContext context) {
     IconData getIcon() {
       switch (sample.category) {
-        case 'infrastructure': return Icons.business_rounded;
-        case 'safety': return Icons.security_rounded;
-        case 'utility': return Icons.settings_input_component_rounded;
-        default: return Icons.inventory_2_outlined;
+        case 'infrastructure':
+          return Icons.business_rounded;
+        case 'safety':
+          return Icons.security_rounded;
+        case 'utility':
+          return Icons.settings_input_component_rounded;
+        default:
+          return Icons.inventory_2_outlined;
       }
     }
- 
+
     String getLabel() {
       switch (sample.category) {
-        case 'infrastructure': return 'Infrastruktur';
-        case 'safety': return 'Keamanan';
-        case 'utility': return 'Utilitas';
-        default: return sample.category.toUpperCase();
+        case 'infrastructure':
+          return 'Infrastruktur';
+        case 'safety':
+          return 'Keamanan';
+        case 'utility':
+          return 'Utilitas';
+        default:
+          return sample.category.toUpperCase();
       }
     }
- 
+
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
       child: ListTile(
@@ -484,18 +499,11 @@ class _PartSummaryCard extends StatelessWidget {
           '${getLabel()} - ${sample.isDefective ? 'Ada Masalah' : 'Normal'}',
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
         ),
-        subtitle: sample.issueDetails != null
-            ? Text(sample.issueDetails!, style: const TextStyle(fontSize: 11))
-            : null,
+        subtitle: sample.issueDetails != null ? Text(sample.issueDetails!, style: const TextStyle(fontSize: 11)) : null,
         trailing: Icon(
           sample.isDefective ? Icons.error_rounded : Icons.check_circle_rounded,
           color: sample.isDefective ? AppColors.error : AppColors.success,
           size: 18,
-        ),
-      ),
-    );
-  }
-}18,
         ),
       ),
     );
